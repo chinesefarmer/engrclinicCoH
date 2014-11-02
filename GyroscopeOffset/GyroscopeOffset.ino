@@ -1,0 +1,119 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_L3GD20_U.h>
+#include <Adafruit_LSM303_U.h>
+
+/* Assign a unique ID to this sensor at the same time */
+Adafruit_L3GD20_Unified gyro = Adafruit_L3GD20_Unified(20);
+Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
+Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
+
+// global variables
+const float gyroDriftX = 0.24262 , gyroDriftY = -0.00301, gyroDriftZ = -0.00054;
+volatile float roll, pitch, yaw;
+volatile int n = 0;
+
+const float frequencyLoop = 5;
+const float pi = 3.14159265F;
+
+/*******
+HERE IS THE GYRO OFFSET:
+X: need to +0.023926, +0.024486, +0.024373
+Y: need to -0.002802, -0.003123, -0.003111
+Z: need to -0.000289, -0.000897, -0.000445
+*/
+
+
+void displaySensorDetails(void)
+{
+  sensor_t sensor_gyro;
+  gyro.getSensor(&sensor_gyro);
+}
+
+void setup(void) 
+{
+  roll = 0; pitch = 0; yaw = 0;
+  Serial.begin(115200);
+  // -------- GYROSCOPE TEST -----------
+  Serial.println("Gyroscope Test"); Serial.println("");
+  
+  /* Enable auto-ranging */
+  gyro.enableAutoRange(true);
+  
+  /* Initialise the sensor */
+  if(!gyro.begin())
+  {
+    /* There was a problem detecting the L3GD20 ... check your connections */
+    Serial.println("Ooops, no L3GD20 detected ... Check your wiring!");
+    while(1);
+  }
+  
+  /* Display some basic information on all sensors */
+  displaySensorDetails();
+}
+
+void loop(void) 
+{
+  // Get a new sensor event 
+  sensors_event_t event_gyro; 
+  gyro.getEvent(&event_gyro);
+  
+  
+  if(roll > 180){
+    roll = -180;
+  }
+  else if (roll < -180){
+    roll = 180;
+  }
+  else{
+    roll += (event_gyro.gyro.x + gyroDriftX) * 1/frequencyLoop * 180 / pi;
+  }
+  
+  if(roll > 180){
+    roll = -180;
+  }
+  else if (roll < -180){
+    roll = 180;
+  }
+  else{
+    pitch += (event_gyro.gyro.y + gyroDriftY) * 1/frequencyLoop * 180 / pi;
+  }
+  
+  if(roll > 180){
+    roll = -180;
+  }
+  else if (roll < -180){
+    roll = 180;
+  }
+  else{
+    yaw += (event_gyro.gyro.z + gyroDriftZ) * 1/frequencyLoop * 180 / pi;
+  }
+  
+  
+  //'orientation' should have valid .roll and .pitch fields */
+  Serial.print(F("Orientation: "));
+  Serial.print(roll);
+  Serial.print(F(" "));
+  Serial.print(pitch);
+  Serial.print(F(" "));
+  Serial.print(yaw);
+  Serial.println(F(""));
+  delay(100);
+  /*
+  if(n < 10000){
+    n++;
+    gyroDriftX += event_gyro.gyro.x;
+    gyroDriftY += event_gyro.gyro.y;
+    gyroDriftZ += event_gyro.gyro.z;
+  }
+  else{
+    // Display the results (speed is measured in rad/s)
+    Serial.print("Xgyro: "); Serial.print(gyroDriftX/10000,6); Serial.print("  ");
+    Serial.print("Ygyro: "); Serial.print(gyroDriftY/10000,6); Serial.print("  ");
+    Serial.print("Zgyro: "); Serial.print(gyroDriftZ/10000,6); Serial.print("  ");
+    Serial.println("rad/s ");
+    delay(500);
+  }
+  */
+
+}

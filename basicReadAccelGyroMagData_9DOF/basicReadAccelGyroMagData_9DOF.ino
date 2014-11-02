@@ -50,7 +50,7 @@ void displaySensorDetails(void)
 
 void setup(void) 
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   // -------- GYROSCOPE TEST -----------
   Serial.println("Gyroscope Test"); Serial.println("");
   
@@ -105,9 +105,9 @@ void loop(void)
   mag.getEvent(&event_mag);
  
   /* Display the results (speed is measured in rad/s) */
-  Serial.print("Xgyro: "); Serial.print(event_gyro.gyro.x); Serial.print("  ");
-  Serial.print("Ygyro: "); Serial.print(event_gyro.gyro.y); Serial.print("  ");
-  Serial.print("Zgyro: "); Serial.print(event_gyro.gyro.z); Serial.print("  ");
+  Serial.print("Xgyro: "); Serial.print(event_gyro.gyro.x,4); Serial.print("  ");
+  Serial.print("Ygyro: "); Serial.print(event_gyro.gyro.y,4); Serial.print("  ");
+  Serial.print("Zgyro: "); Serial.print(event_gyro.gyro.z,4); Serial.print("  ");
   Serial.println("rad/s ");
   delay(500);
   
