@@ -72,14 +72,6 @@ void loop(void)
     delay(10);
   }
 
-  else if (n == calibrationNo){
-    Serial.println("Loop2");
-    n++;
-    gyroDriftX /= calibrationNo;
-    gyroDriftY /= calibrationNo;
-    gyroDriftZ /= calibrationNo;
-    delay(10);
-  }
 
   else{
     if(roll > 180){
