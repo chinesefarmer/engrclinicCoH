@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2012 for Windows Desktop
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OpenCV_guitest", "OpenCV_guitest\OpenCV_guitest.vcxproj", "{80229B2C-7941-4793-A933-B070FB89F4F1}"
 EndProject
 Global
@@ -11,8 +11,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{80229B2C-7941-4793-A933-B070FB89F4F1}.Debug|Win32.ActiveCfg = Debug|Win32
 		{80229B2C-7941-4793-A933-B070FB89F4F1}.Debug|Win32.Build.0 = Debug|Win32
-		{80229B2C-7941-4793-A933-B070FB89F4F1}.Release|Win32.ActiveCfg = Release|Win32
-		{80229B2C-7941-4793-A933-B070FB89F4F1}.Release|Win32.Build.0 = Release|Win32
+		{80229B2C-7941-4793-A933-B070FB89F4F1}.Release|Win32.ActiveCfg = Debug|Win32
+		{80229B2C-7941-4793-A933-B070FB89F4F1}.Release|Win32.Build.0 = Debug|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
