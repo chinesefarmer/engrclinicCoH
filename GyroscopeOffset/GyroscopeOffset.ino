@@ -9,15 +9,16 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
 
 // global variables
-const float gyroDriftX = 0.24262 , gyroDriftY = -0.00301, gyroDriftZ = -0.00054;
-volatile float roll, pitch, yaw;
-volatile int n = 0;
+float gyroDriftX, gyroDriftY, gyroDriftZ;
+float roll, pitch, yaw;
+int n;
 
 const float frequencyLoop = 5;
 const float pi = 3.14159265F;
+const float calibrationNo = 300;
 
 /*******
-HERE IS THE GYRO OFFSET:
+HERE IS THE USUAL GYRO OFFSET:
 X: need to +0.023926, +0.024486, +0.024373
 Y: need to -0.002802, -0.003123, -0.003111
 Z: need to -0.000289, -0.000897, -0.000445
@@ -32,7 +33,8 @@ void displaySensorDetails(void)
 
 void setup(void) 
 {
-  roll = 0; pitch = 0; yaw = 0;
+  roll = 0; pitch = 0; yaw = 0; n = 0;
+  gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0; 
   Serial.begin(115200);
   // -------- GYROSCOPE TEST -----------
   Serial.println("Gyroscope Test"); Serial.println("");
@@ -57,63 +59,66 @@ void loop(void)
   // Get a new sensor event 
   sensors_event_t event_gyro; 
   gyro.getEvent(&event_gyro);
-  
-  
-  if(roll > 180){
-    roll = -180;
-  }
-  else if (roll < -180){
-    roll = 180;
-  }
-  else{
-    roll += (event_gyro.gyro.x + gyroDriftX) * 1/frequencyLoop * 180 / pi;
-  }
-  
-  if(roll > 180){
-    roll = -180;
-  }
-  else if (roll < -180){
-    roll = 180;
-  }
-  else{
-    pitch += (event_gyro.gyro.y + gyroDriftY) * 1/frequencyLoop * 180 / pi;
-  }
-  
-  if(roll > 180){
-    roll = -180;
-  }
-  else if (roll < -180){
-    roll = 180;
-  }
-  else{
-    yaw += (event_gyro.gyro.z + gyroDriftZ) * 1/frequencyLoop * 180 / pi;
-  }
-  
-  
-  //'orientation' should have valid .roll and .pitch fields */
-  Serial.print(F("Orientation: "));
-  Serial.print(roll);
-  Serial.print(F(" "));
-  Serial.print(pitch);
-  Serial.print(F(" "));
-  Serial.print(yaw);
-  Serial.println(F(""));
-  delay(100);
-  /*
-  if(n < 10000){
+  if (n < 5){
     n++;
-    gyroDriftX += event_gyro.gyro.x;
-    gyroDriftY += event_gyro.gyro.y;
-    gyroDriftZ += event_gyro.gyro.z;
+    delay(10);
   }
-  else{
-    // Display the results (speed is measured in rad/s)
-    Serial.print("Xgyro: "); Serial.print(gyroDriftX/10000,6); Serial.print("  ");
-    Serial.print("Ygyro: "); Serial.print(gyroDriftY/10000,6); Serial.print("  ");
-    Serial.print("Zgyro: "); Serial.print(gyroDriftZ/10000,6); Serial.print("  ");
-    Serial.println("rad/s ");
-    delay(500);
+  else if(n < calibrationNo){
+    Serial.println("Loop1");
+    n++;
+    gyroDriftX += -1*event_gyro.gyro.x;
+    gyroDriftY += -1*event_gyro.gyro.y;
+    gyroDriftZ += -1*event_gyro.gyro.z;
+    delay(10);
   }
-  */
 
+  else if (n == calibrationNo){
+    Serial.println("Loop2");
+    n++;
+    gyroDriftX /= calibrationNo;
+    gyroDriftY /= calibrationNo;
+    gyroDriftZ /= calibrationNo;
+    delay(10);
+  }
+
+  else{
+    if(roll > 180){
+      roll = -180;
+    }
+    else if (roll < -180){
+      roll = 180;
+    }
+    else{
+      roll += (event_gyro.gyro.x + gyroDriftX) * 1/frequencyLoop * 180 / pi;
+    }
+    
+    if(roll > 180){
+      roll = -180;
+    }
+    else if (roll < -180){
+      roll = 180;
+    }
+    else{
+      pitch += (event_gyro.gyro.y + gyroDriftY) * 1/frequencyLoop * 180 / pi;
+    }
+    
+    if(roll > 180){
+      roll = -180;
+    }
+    else if (roll < -180){
+      roll = 180;
+    }
+    else{
+      yaw += (event_gyro.gyro.z + gyroDriftZ) * 1/frequencyLoop * 180 / pi;
+    }
+    
+    Serial.print(F("Orientation: "));
+    Serial.print(roll);
+    Serial.print(F(" "));
+    Serial.print(pitch);
+    Serial.print(F(" "));
+    Serial.print(yaw);
+    Serial.println(F(""));
+    delay(100);
+  }
 }
