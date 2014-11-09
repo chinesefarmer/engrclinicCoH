@@ -18,6 +18,7 @@ Serial       port;
 String       buffer = "";
 final String serialConfigFile = "serialconfig.txt";
 boolean      printSerial = false;
+PrintWriter output;
 
 // UI controls.
 GPanel    configPanel;
@@ -63,6 +64,7 @@ void setup()
   configPanel.addControl(printSerialCheckbox);
   // Set serial port.
   setSerialPort(serialList.getSelectedText());
+  output = createWriter("positions.csv");
 }
  
 void draw()
@@ -110,6 +112,7 @@ void serialEvent(Serial p)
       pitch = float(list[2]);
       yaw   = float(list[3]);
       buffer = incoming;
+    output.println(roll + "," + pitch + "," + yaw );
     }
     if ( (list.length > 0) && (list[0].equals("Alt:")) ) 
     {
