@@ -19,6 +19,9 @@ String       buffer = "";
 final String serialConfigFile = "serialconfig.txt";
 boolean      printSerial = false;
 PrintWriter output;
+int[] xvals;
+int[] yvals;
+int[] bvals;
 
 // UI controls.
 GPanel    configPanel;
@@ -28,11 +31,11 @@ GCheckbox printSerialCheckbox;
 
 void setup()
 {
-  size(400, 500, OPENGL);
-  frameRate(30);
-  model = new OBJModel(this);
-  model.load("bunny.obj");
-  model.scale(20);
+  size(1366,768);
+  noSmooth();
+  xvals = new int[width];
+  yvals = new int[width];
+  bvals = new int[width];
   
   // Serial port setup.
   // Grab list of serial ports and choose one that was persisted earlier or default to the first port.
@@ -53,7 +56,7 @@ void setup()
     }
   }
   // Build serial config UI.
-  configPanel = new GPanel(this, 10, 10, width-20, 90, "Configuration (click to hide/show)");
+  configPanel = new GPanel(this, 10, 10, 250, 90, "Configuration (click to hide/show)");
   serialLabel = new GLabel(this,  0, 20, 80, 25, "Serial port:");
   configPanel.addControl(serialLabel);
   serialList = new GDropList(this, 90, 20, 200, 200, 6);
@@ -69,8 +72,35 @@ void setup()
  
 void draw()
 {
-  background(0,0, 0);
+  background(102);
+  
+  for(int i = 1; i < width; i++) { 
+    xvals[i-1] = xvals[i]; 
+    yvals[i-1] = yvals[i];
+    bvals[i-1] = bvals[i];
+  } 
+  
+  int rollint = round(roll);
+  int pitchint = round(pitch);
+  int yawint = round(yaw);
+  // Add the new values to the end of the array 
+  xvals[width-1] = rollint; 
+  yvals[width-1] = pitchint;
+  bvals[width-1] = yawint;
+  
+  fill(255);
+  noStroke();
+  rect(0, height/3, width, height/3+1);
 
+  for(int i=1; i<width; i++) {
+    stroke(255, 255,0);
+    point(i, height/6+xvals[i]/3);
+    stroke(0,0,0);
+    point(i, 3*height/6+yvals[i]/3);
+    stroke(124,252,0);
+    point(i, 5*height/6+bvals[i]/3);
+  }
+ /*
   // Set a new co-ordinate space
   pushMatrix();
 
@@ -93,7 +123,7 @@ void draw()
   model.draw();
   popMatrix();
   popMatrix();
-  //print("draw");
+  //print("draw");*/
 }
 
 void serialEvent(Serial p) 
