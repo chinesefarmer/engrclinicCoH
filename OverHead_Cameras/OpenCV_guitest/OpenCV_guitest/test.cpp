@@ -53,10 +53,10 @@ int main(){
 
 	while(1){
 		cap0>>image0;
-		this_thread::sleep_for (chrono::milliseconds(1));
+		//this_thread::sleep_for (chrono::milliseconds(1));
 		cap1>>image1;
 		// print to screen
-		findBox(image0, lowH, highH, lowS, highS, lowV, highV);
+		//findBox(image0, lowH, highH, lowS, highS, lowV, highV);
 		imshow("window1",image0);
 		//delay 33ms
 		waitKey(33);
@@ -68,7 +68,8 @@ int findBox(Mat frame, int &lowH, int &highH, int &lowS, int &highS, int &lowV, 
 {
 	Mat hsvFrame, threshFrame;
 	cvtColor(frame, hsvFrame, CV_RGB2HSV);
-	inRange(hsvFrame,)
+	//inRange(hsvFrame,)
+	return 0;
 }
 
 
