@@ -13,8 +13,8 @@ using namespace std;
 using namespace cv;
 
 
-
-Scalar findBox(Mat frame, int &lowH, int &highH, int &lowS, int &highS, int &lowV, int &highV)
+// Main color finding function
+Point findBox(Mat frame, int &lowH, int &highH, int &lowS, int &highS, int &lowV, int &highV)
 {
 	//Change and filter
 	Mat hsvFrame, threshFrame, edgeFrame;
@@ -33,33 +33,48 @@ Scalar findBox(Mat frame, int &lowH, int &highH, int &lowS, int &highS, int &low
 	vector<vector<Point>> contoursFound, squares;
 	findContours(edgeFrame, contoursFound, CV_RETR_LIST,CV_CHAIN_APPROX_SIMPLE);
 	// Test contours            
-	vector<Point> approx;
+	vector<Point> approx;// used for finding perfect squares
+	vector<Point> maxContour; // initalize max contour
+	Point center;
+	double maxArea = 0.0;
 	for (size_t i = 0; i < contoursFound.size(); i++){
 		// approximate contour with accuracy proportional
         // to the contour perimeter
+		/*
         approxPolyDP(Mat(contoursFound[i]), approx, arcLength(Mat(contoursFound[i]), true)*0.02, true);
 		// Note: absolute value of an area is used because 
 		// area may be positive or negative - in accordance with the
 		// contour orientation
-		if (approx.size() == 4 && fabs(contourArea(Mat(approx))) > 1000 &&
+		if (approx.size() <=5 && fabs(contourArea(Mat(approx))) > 100 &&
            isContourConvex(Mat(approx))){
-			   squares.push_back(approx);
+			   squares.push_back(approx);}*/
+		
+		double contArea = contourArea(contoursFound[i]);
+		if(contArea>1000) {
+			if(contArea>maxArea){
+				maxArea = contArea;
+				maxContour = contoursFound[i];
+			}
+			squares.push_back(contoursFound[i]);
 		}
     }	
 	//Draw the contours on the original image
 	Scalar color(255, 0, 0);
-	cout << squares.size()<<endl;
-	drawContours(frame, squares, -2, color, CV_FILLED,8);
-	
+	if(maxArea !=0){
+		Rect bRec = boundingRect(maxContour);
+		rectangle(frame, bRec.tl(), bRec.br(), color, 1, 8, 0);
+		center = Point(bRec.x + bRec.width/2, bRec.y - bRec.height/2)
+	} else {
+		cerr<<"Did not find a contour!"<<endl;
+	}
 	//Display Image
-
 	imshow("Thresholded Image", threshFrame);
 	imshow("Canny Image", edgeFrame);
 	imshow("Original", frame);
 
-	return Scalar(0,0);
+	return center;
 }
-
+// Creates trackbar for Hue, Saturation and Value
 int createFilterTrackbar(int &lowH, int &highH, int &lowS, int &highS, int &lowV, int &highV){
 	namedWindow("Control", CV_WINDOW_AUTOSIZE); //create a window called "Control"
 	cvCreateTrackbar("LowH", "Control", &lowH, 179); //Hue (0 - 179)
@@ -73,6 +88,7 @@ int createFilterTrackbar(int &lowH, int &highH, int &lowS, int &highS, int &lowV
 	return 0;
 }
 
+// Saving function
 VideoWriter& intSave(VideoCapture &cap0, string name){
 	double dWidth = cap0.get(CV_CAP_PROP_FRAME_WIDTH); //get the width of frames of the video
 	double dHeight = cap0.get(CV_CAP_PROP_FRAME_HEIGHT); //get the height of frames of the video
@@ -83,30 +99,14 @@ VideoWriter& intSave(VideoCapture &cap0, string name){
 	VideoWriter saveVideo(videoName,
 		CV_FOURCC('M','P','4','2'), 20, frameSize, true); //initialize the VideoWriter object 'P','I','M','1'
 	
-	if ( !saveVideo.isOpened() ) //if not initialize the VideoWriter successfully, exit the program
-   {
+	if ( !saveVideo.isOpened() ) {//if not initialize the VideoWriter successfully, exit the program
         cerr << "ERROR: Failed to write the video" << endl;
    }
 	return saveVideo;
 }
 
-int countCameras(){
-   VideoCapture temp_camera;
-   int maxTested = 10;
-   for (int i = 0; i < maxTested; i++){
-	   cv::VideoCapture temp_camera(i);
-	   bool res = (!temp_camera.isOpened());
-	   temp_camera.release();
-	   if (res){
-			return i;
-	   }
-   }
-}
-
-
 int main(){
 	cout << "here it starts"<<endl;
-//	cout <<countCameras();
 	//create matrix to store image
 	Mat image0;
 	Mat frame, threshFrame;
@@ -139,7 +139,7 @@ int main(){
 	// Continuously capture pictures and filter them
 	while(1){
 		cap0>>image0;
-		Scalar box1=findBox(image0, lowH, highH, lowS, highS, lowV, highV);
+		Point center = findBox(image0, lowH, highH, lowS, highS, lowV, highV);
 		//delay 33ms
 		waitKey(33);
 		
