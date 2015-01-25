@@ -1,0 +1,15 @@
+720p:
+
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-adev="Microphone (HD Webcam C615)"  :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1280x720,acodec=mp3,ab=96,channels=2,samplerate=44100}:std{access=file,mux=mp4,dst=C:\\Users\\Cindy\\Videos\\Clinic\\siteVisit-4.mp4}'}"
+
+1080p:
+
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-adev="Microphone (HD Webcam C615)"  :dshow-caching=200 :dshow-size=1920x1080 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1920x1080,acodec=mp3,ab=96,channels=2,samplerate=44100}:std{access=file,mux=mp4,dst=C:\\Users\\Cindy\\Videos\\Clinic\\siteVisit-4.mp4}'}"
+
+1080p display, 720p record
+
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-adev="Microphone (HD Webcam C615)"  :dshow-caching=200 :dshow-size=1920x1080 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1280x720,acodec=mp3,ab=96,channels=2,samplerate=44100}:std{access=file,mux=mp4,dst=C:\\Users\\Cindy\\Videos\\Clinic\\siteVisit-6.mp4}'}"
+
+no audio:
+
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\Cindy\\Videos\\Clinic\\designReview-2.mp4}'}"
