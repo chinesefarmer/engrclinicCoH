@@ -42,7 +42,7 @@ from matplotlib.backends.backend_wxagg import \
 import numpy as np
 import pylab
 #Data comes from here
-from Arduino_Monitor_SiteVisit import SerialData as DataGen
+from FallSiteVisit_GUI import SerialData as DataGen
 
 def output(time_in, IR_in, blink_in, light_in, glance_in):
     workbook = xlwt.Workbook()
