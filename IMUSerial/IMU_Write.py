@@ -4,7 +4,8 @@ Lots of help from here:
 http://stackoverflow.com/questions/1093598/pyserial-how-to-read-last-line-sent-from-serial-device
 """
 import sys
-sys.path.append('/usr/stsci/pyssg/Python-2.7/lib/python2.7/')
+#Ben, change this path to wherever Python is installed. :)
+#sys.path.append('/usr/stsci/pyssg/Python-2.7/lib/python2.7/')
 from threading import Thread
 import time
 import serial
@@ -27,16 +28,23 @@ def receiving(ser):
             last_received_full = lines[-2]
             if '\t' in last_received_full:
                 last_received_tabbed = last_received_full.split('\t')
-                IR3 = float(last_received_tabbed[0])
-                IR1 = float(last_received_tabbed[1])
-                IR2 = float(last_received_tabbed[2])
-                light_buf = last_received_tabbed[3]
-                if '\r' in light_buf:
-                    lightBogus = light_buf.split('\r')
-                    light = float(lightBogus[0])
+                AcclX = float(last_received_tabbed[0])        #Sensor Interpretation
+                AcclY = float(last_received_tabbed[1])
+                AcclZ = float(last_received_tabbed[2])
+                MagX = float(last_received_tabbed[3])        #Sensor Interpretation
+                MagY = float(last_received_tabbed[4])
+                MagZ = float(last_received_tabbed[5])
+                GyroX = float(last_received_tabbed[6])        #Sensor Interpretation
+                GyroY = float(last_received_tabbed[7])
+                GyroZ1 = last_received_tabbed[8]         #Keep this line at the end
+                if '\r' in GyroZ1:
+                    GyroZBogus = GyroZ1.split('\r')
+                    GyroZ = float(GyroZBogus[0])
                 else:
-                    light = float(light_buf)
-                return [IR1, IR2, IR3, light]
+                    GyroZ = float(GyroZ1)
+
+                print [AcclX, AcclY,  AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ] 
+                return [AcclX, AcclY,  AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ]               # 
             #If the Arduino sends lots of empty lines, you'll lose the
             #last filled line, so you could make the above statement conditional
             #like so: if lines[-2]: last_received = lines[-2]
@@ -50,7 +58,7 @@ class SerialData(object):
             #IVAN AND KAT!!! Change the name of the port here to suit your sensor
             #also change the baudrate to what your sensor uses.
             self.ser = ser = serial.Serial(
-                port='/dev/cu.usbmodem621',
+                port='COM3', #Try to figure out how to automate this!!!
                 baudrate=57600,
                 bytesize=serial.EIGHTBITS,
                 parity=serial.PARITY_NONE,
