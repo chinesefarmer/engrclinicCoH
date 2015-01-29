@@ -37,7 +37,7 @@ void setup()
   while (!Serial); // flora & leonardo
   
   Serial.begin(57600);
-  Serial.println("LSM raw read demo");
+//  Serial.println("LSM raw read demo");
   
   // Try to initialise and warn if we couldn't detect the chip
   if (!lsm.begin())
@@ -45,9 +45,9 @@ void setup()
     Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
     while (1);
   }
-  Serial.println("Found LSM9DS0 9DOF");
-  Serial.println("");
-  Serial.println("");
+//  Serial.println("Found LSM9DS0 9DOF");
+//  Serial.println("");
+//  Serial.println("");
 }
 
 void loop() 
