@@ -28,21 +28,23 @@ import sys
 import wx
 import xlwt
 
+
 REFRESH_INTERVAL_MS = 90
 
 # The recommended way to use wx with mpl is with the WXAgg
 # backend. 
 #
+
 import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
     NavigationToolbar2WxAgg as NavigationToolbar
-import numpy as np
 import pylab
+import numpy as np
 #Data comes from here
-from Arduino_Monitor_SiteVisit import SerialData as DataGen
+from IMU_Write import SerialData as DataGen
 
 def output(time_in, IR_in, blink_in, light_in, glance_in):
     workbook = xlwt.Workbook()

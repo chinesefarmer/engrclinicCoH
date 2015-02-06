@@ -59,21 +59,20 @@ void loop()
   Serial.print("\t");
   Serial.print((int)lsm.accelData.y);
   Serial.print("\t");
-  Serial.println((int)lsm.accelData.z);
+  Serial.print((int)lsm.accelData.z);
   Serial.print("\t");
   //Magnetometer x,y,z
   Serial.print((int)lsm.magData.x);
   Serial.print("\t");
   Serial.print((int)lsm.magData.y);
   Serial.print("\t");
-  Serial.println((int)lsm.magData.z);
+  Serial.print((int)lsm.magData.z);
   Serial.print("\t");
   //Gyroscope x,y,z
   Serial.print((int)lsm.gyroData.x);
   Serial.print("\t");
   Serial.print((int)lsm.gyroData.y);
   Serial.print("\t");
-  Serial.print((int)lsm.gyroData.z);
-  Serial.print("\t");
+  Serial.println((int)lsm.gyroData.z);
   delay(200);
 }
