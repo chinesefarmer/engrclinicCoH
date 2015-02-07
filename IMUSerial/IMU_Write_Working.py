@@ -1,5 +1,6 @@
 import csv
 from serial import *
+from math import *
 import msvcrt as m
 
 
@@ -15,18 +16,24 @@ def csv_writer(data):
 
 #Set port and baudRate when calling this function
 def receiving(port, baudRate):
+    #Initialize variables for roll, pitch, yaw calculations
+    roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
+    prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+    #Other important variables
+    frequencyLoop = 5
+    calibrationNo = 100
+    
     usb = Serial(port, baudRate)
     usb.timeout = 1
     global last_received
     buffer = ''
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ"])
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw"])
     
     while True:
         #It also works if you just read the line instead of using a legit buffer
         buffer = usb.readline()
         #buffer = buffer + usb.read(usb.inWaiting())
         #raw_input("Press enter to continue...")
-
             
         if '\n' in buffer:
             lines = buffer.split('\n')
@@ -48,15 +55,59 @@ def receiving(port, baudRate):
                     GyroZ = float(GyroZBogus[0])
                 else:
                     GyroZ = float(GyroZ1)
-                    
-                print "Accl \t\t Mag \t\t Gyro"
-                print "X: " + str(AcclX) + "\tX: " + str(MagX) + "\tX: " + str(GyroX)
-                print "Y: " + str(AcclY) + "\tY: " + str(MagY) + "\tY: " + str(GyroY)
-                print "Z: " + str(AcclZ) + "\tZ: " + str(MagZ) + "\tZ: " + str(GyroZ) + "\n"
 
-                
-                
-                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ]
+
+                if (n < 5):
+                    n = n + 1
+                elif(n < calibrationNo):
+                    n = n + 1
+                    gyroDriftX = gyroDriftX + -1*GyroX
+                    gyroDriftY = gyroDriftY + -1*GyroY
+                    gyroDriftZ = gyroDriftZ + -1*GyroZ
+                elif(n == calibrationNo):
+                    n = n + 1
+                    gyroDriftX = gyroDriftX + calibrationNo
+                    gyroDriftY = gyroDriftY + calibrationNo
+                    gyroDriftZ = gyroDriftZ + calibrationNo
+                else:
+                    roll = atan2(AcclY, AcclZ)
+                    if(AcclY*sin(roll) + AcclZ*cos(roll) == 0):
+                        if(AcclX > 0):
+                            pitch = pi/2
+                        else:
+                            pitch = -1*pi/2
+                    else:
+                        pitch = atan(-1*AcclX / (AcclY*sin(roll) + AcclZ*cos(roll)))
+                    yaw = atan2(MagZ*sin(roll) - MagY*cos(roll), MagX*cos(pitch)+
+                                MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll))
+
+                    gX = abs(GyroX + gyroDriftX)
+                    gY = abs(GyroY + gyroDriftY)
+                    gZ = abs(GyroZ + gyroDriftZ)
+
+                    prevR = nextR
+                    prevP = nextP
+                    prevY = nextY
+
+                    nextR = (prevR + roll*gX) / (1 + gX)
+                    nextP = (prevP + pitch * gY) / (1 + gY)
+                    nextY = (prevY + yaw * gZ) / (1 + gZ)
+
+                    roll = nextR*180/pi
+                    pitch = -1*nextP*180/pi
+                    yaw = nextY*180/pi
+ 
+                print "-----------------------------------------" 
+                print "Accl \t\t Mag \t\t Gyro"
+                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
+                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
+                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
+                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
+                print "n is: " + str(n)
+                print "-----------------------------------------"
+                print " "
+                    
+                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw]
                 csv_writer(data)
 
             #buffer = lines[-1]

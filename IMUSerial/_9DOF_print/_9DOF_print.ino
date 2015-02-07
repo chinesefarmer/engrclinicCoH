@@ -4,7 +4,7 @@
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
 
 // i2c
-Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
+Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(); //***(1000)
 
 // You can also use software SPI
 //Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(13, 12, 11, 10, 9);
@@ -55,11 +55,11 @@ void loop()
   lsm.read();
   
   //Accelerometer x,y,z
-  Serial.print((int)lsm.accelData.x);
+  Serial.print(lsm.accelData.x);
   Serial.print("\t");
-  Serial.print((int)lsm.accelData.y);
+  Serial.print(lsm.accelData.y);
   Serial.print("\t");
-  Serial.print((int)lsm.accelData.z);
+  Serial.print(lsm.accelData.z);
   Serial.print("\t");
   //Magnetometer x,y,z
   Serial.print((int)lsm.magData.x);
