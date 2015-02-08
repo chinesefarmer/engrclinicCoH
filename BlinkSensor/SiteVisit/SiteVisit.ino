@@ -137,5 +137,5 @@ void loop(){
   Serial.print("\t");
   Serial.println(voltage);
                                
-  delay(10);                                                                                              
+  delay(1);                                                                                              
 }
