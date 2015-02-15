@@ -2,10 +2,14 @@ import csv
 from serial import *
 from math import *
 import msvcrt as m
+import numpy as np
+import pylab as pl
+
+from IMU_filter import activeFilter
 
 
-last_received = ''
-last_received_tabbed = ''
+pauseCheck = 0;                                 # Debug code
+
 
 #When opening the csv file, remember to select the delimiter as commas
 #(open office is stupid and won't put the data in separate columns otherwise)
@@ -19,6 +23,22 @@ def receiving(port, baudRate):
     #Initialize variables for roll, pitch, yaw calculations
     roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
     prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+    AcclXTot = np.array([]);
+    AcclYTot = [];
+    AcclZTot = [];
+
+    GyroXTot = [];
+    GyroYTot = [];
+    GyroZTot = [];
+
+    MagXTot = [];
+    MagYTot = [];
+    MagZTot = [];
+
+    RollTot = [];
+    PitchTot = [];
+    YawTot = [];
+    
     #Other important variables
     frequencyLoop = 5
     calibrationNo = 100
@@ -30,6 +50,7 @@ def receiving(port, baudRate):
     csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw"])
     
     while True:
+
         #It also works if you just read the line instead of using a legit buffer
         buffer = usb.readline()
         #buffer = buffer + usb.read(usb.inWaiting())
@@ -41,6 +62,8 @@ def receiving(port, baudRate):
 
             if '\t' in last_received_full:
                 last_received_tabbed = last_received_full.split('\t')
+##                print(last_received_tabbed)
+##                print len(last_received_tabbed)
                 AcclX = float(last_received_tabbed[0])        
                 AcclY = float(last_received_tabbed[1])
                 AcclZ = float(last_received_tabbed[2])
@@ -70,6 +93,20 @@ def receiving(port, baudRate):
                     gyroDriftY = gyroDriftY + calibrationNo
                     gyroDriftZ = gyroDriftZ + calibrationNo
                 else:
+                    
+                    global pauseCheck
+                    if(pauseCheck == 0):                                            #Debugging
+##                        x = [1, 2, 3, 4, 5]
+##
+##                        y = [1, 4, 9, 16, 25]
+##
+##                        pl.plot(x, y)
+##                        pl.show()
+                        pauseCheck = 1
+                        raw_input("Please put on Headset, then press enter:")        #Debugging
+
+                    
+                    n = n + 1
                     roll = atan2(AcclY, AcclZ)
                     if(AcclY*sin(roll) + AcclZ*cos(roll) == 0):
                         if(AcclX > 0):
@@ -96,24 +133,44 @@ def receiving(port, baudRate):
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
                     yaw = nextY*180/pi
- 
-                print "-----------------------------------------" 
-                print "Accl \t\t Mag \t\t Gyro"
-                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
-                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
-                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
-                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
-                print "n is: " + str(n)
-                print "-----------------------------------------"
-                print " "
                     
                 data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw]
+                data = activeFilter(data)
                 csv_writer(data)
+
+                AcclXTot.append(AcclX);
+                if(n == 200):
+                    print len(AcclXTot)
+                    numSamples = np.linspace(1,200,200)
+                    print len(numSamples)
+                    print AcclXTot
+                    print numSamples
+                
+                    pl.plot(numSamples, AcclX)
+                    pl.show()
+
+##                print "-----------------------------------------" 
+##                print "Accl \t\t Mag \t\t Gyro"
+##                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
+##                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
+##                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
+##                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
+                print "Sample Number is: " + str(n)
+##                print "-----------------------------------------"
+##                print " "
+
+
 
             #buffer = lines[-1]
                 
 
 if __name__=='__main__':
-    filename = raw_input('Enter a file name w/ .csv at the end:  ')
-    receiving('COM3',57600)
+    filename = raw_input('Enter a file name:  ')+ ".csv"
+    arduinoData = receiving('COM3',57600)
+
+
+
+
+
+
     

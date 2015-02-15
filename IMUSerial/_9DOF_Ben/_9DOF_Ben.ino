@@ -145,7 +145,7 @@ void setup(void)
   while (!Serial);  // wait for flora/leonardo
   
   Serial.begin(57600);
-  Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
+//  Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
   
   /* Initialise the sensor */
   if(!lsm.begin())
@@ -154,7 +154,7 @@ void setup(void)
     Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
     while(1);
   }
-  Serial.println(F("Found LSM9DS0 9DOF"));
+//  Serial.println(F("Found LSM9DS0 9DOF"));
   
   /* Display some basic information on this sensor */
   //***not doing this because I don't want to have random text printed
@@ -181,9 +181,9 @@ void loop(void)
   lsm.getEvent(&accel, &mag, &gyro, &temp); 
 //  unsigned long startTime = micros();
   // print out accelleration data
-  Serial.print((float)accel.acceleration.x,4); Serial.print("\t");
-  Serial.print((float)accel.acceleration.y,4); Serial.print("\t");
-  Serial.print((float)accel.acceleration.z,4); Serial.print("\t");
+  Serial.print((float)accel.acceleration.x,4); Serial.print(" , ");
+  Serial.print((float)accel.acceleration.y,4); Serial.print(" , ");
+  Serial.print((float)accel.acceleration.z,4); Serial.print(" , ");
   /*
   Serial.print("Accel X: "); Serial.print(accel.acceleration.x); Serial.print(" ");
   Serial.print("  \tY: "); Serial.print(accel.acceleration.y);       Serial.print(" ");
@@ -191,9 +191,9 @@ void loop(void)
   */
 
   // print out magnetometer data
-  Serial.print((float)mag.magnetic.x,4); Serial.print("\t");
-  Serial.print((float)mag.magnetic.y,4); Serial.print("\t");
-  Serial.print((float)mag.magnetic.z,4); Serial.print("\t");
+  Serial.print((float)mag.magnetic.x,4); Serial.print(" , ");
+  Serial.print((float)mag.magnetic.y,4); Serial.print(" , ");
+  Serial.print((float)mag.magnetic.z,4); Serial.print(" , ");
   /*
   Serial.print("Magn. X: "); Serial.print(mag.magnetic.x); Serial.print(" ");
   Serial.print("  \tY: "); Serial.print(mag.magnetic.y);       Serial.print(" ");
@@ -201,8 +201,8 @@ void loop(void)
   */
   
   // print out gyroscopic data
-  Serial.print((float)gyro.gyro.x,4); Serial.print("\t");
-  Serial.print((float)gyro.gyro.y,4); Serial.print("\t");
+  Serial.print((float)gyro.gyro.x,4); Serial.print(" , ");
+  Serial.print((float)gyro.gyro.y,4); Serial.print(" , ");
   Serial.println((float)gyro.gyro.z,4);
   
   /*
@@ -221,5 +221,5 @@ void loop(void)
 
   //Serial.println("**********************\n");
 
-delay(1);
+  //delay(10);
 }
