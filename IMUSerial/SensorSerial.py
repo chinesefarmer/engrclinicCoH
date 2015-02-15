@@ -17,6 +17,7 @@ def receiving(usb, setting):
     buffer = ''
     data = []
     while True:
+        print buffer
         buffer = usb.readline()
         timeD = datetime.now().time()
         
@@ -42,7 +43,6 @@ def receiving(usb, setting):
                     error = 0
                 else:
                     data = [timeD.hour,timeD.minute,timeD.second,timeD.microsecond,IR1]
-                    return data
 
             #For the IMU
             else:
@@ -65,5 +65,11 @@ def receiving(usb, setting):
                     else:
                         GyroZ = float(GyroZ1)
                     data = [timeD.hour,timeD.minute,timeD.second,timeD.microsecond, AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ]
-                    return data
-                
+            print data
+            return data
+
+if __name__=='__main__':
+    usb = Serial('COM3', 57600)
+    usb.timeout = 1
+    while True:
+        receiving(usb,1)
