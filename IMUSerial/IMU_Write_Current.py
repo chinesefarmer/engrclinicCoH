@@ -51,6 +51,7 @@ def process(port, baudRate):
     
     while True:
         data = receiving(usb,1)
+        print data
         AcclX = data[4]; AcclY = data[5]; AcclZ = data[6]; MagX = data[7]; MagY = data[8]; MagZ = data[9];
         GyroX = data[10]; GyroY = data[11]; GyroZ = data[12]; Hour = data[0]; Minute = data[1]; Second = data[2];
         MicroSec = data[3]

@@ -16,7 +16,10 @@ def receiving(usb, setting):
     
     buffer = ''
     data = []
+<<<<<<< HEAD:SensorSerial.py
+=======
     
+>>>>>>> e52a905dd4d61ab58e0d8e34f20ee8806bd0ef1a:BlinkSensor/OLD/SensorSerial.py
     while True:
         buffer = usb.readline()
         timeD = datetime.now().time()
@@ -43,6 +46,7 @@ def receiving(usb, setting):
                     error = 0
                 else:
                     data = [timeD.hour,timeD.minute,timeD.second,timeD.microsecond,IR1]
+                    return data
 
             #For the IMU
             else:
@@ -65,5 +69,5 @@ def receiving(usb, setting):
                     else:
                         GyroZ = float(GyroZ1)
                     data = [timeD.hour,timeD.minute,timeD.second,timeD.microsecond, AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ]
-            return data
+                    return data
                 
