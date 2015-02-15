@@ -21,6 +21,11 @@ Eli Bendersky (eliben@gmail.com)
 License: this code is in the public domain
 Last modified: 31.07.2008
 """
+#We want Refresh_Interval_Ms to be the smallest possible, which is 1 millisecond
+#At this rate we take samples every 0.12 seconds
+#A blink is between 0.3 and 0.4 seconds long, which would explain why the height is different
+#for blinks sometimes
+from datetime import *
 import os
 import pprint
 import random
@@ -28,7 +33,8 @@ import sys
 import wx
 import xlwt
 
-REFRESH_INTERVAL_MS = 90
+
+REFRESH_INTERVAL_MS = 1
 
 # The recommended way to use wx with mpl is with the WXAgg
 # backend. 
@@ -44,24 +50,32 @@ import pylab
 #Data comes from here
 from FallSiteVisit_GUI import SerialData as DataGen
 
-def output(time_in, IR_in, blink_in, light_in, glance_in):
+def output(sample_in, time_in, IR_in, blink_in, light_in, glance_in):
     workbook = xlwt.Workbook()
     sh = workbook.add_sheet('Test')
 
     style = xlwt.easyxf('font: bold 1')
-    sh.write(0, 0, 'Time', style) # row, column, value
-    sh.write(0, 1, 'Raw IR', style)
-    sh.write(0, 2, 'Blink Alg', style)
-    sh.write(0, 3, 'Raw Light Sensor', style)
-    sh.write(0, 4, 'Glance Alg', style)
-    minInput = min(len(time_in),len(IR_in),len(blink_in),len(light_in),len(glance_in))
+    sh.write(0, 0, 'Sample', style)
+    sh.write(0, 1, 'Hour', style)
+    sh.write(0, 2, 'Minute', style)
+    sh.write(0, 3, 'Second', style)
+    sh.write(0, 4, 'Microsecond', style)# row, column, value
+    sh.write(0, 5, 'Raw IR', style)
+    sh.write(0, 6, 'Blink Alg', style)
+    sh.write(0, 7, 'Raw Light Sensor', style)
+    sh.write(0, 8, 'Glance Alg', style)
+    minInput = min(len(sample_in),len(time_in),len(IR_in),len(blink_in),len(light_in),len(glance_in))
     #for sec in time_in:
     for el in range(0,minInput):
-        sh.write(el+1, 0, time_in[el]) #row, column, value
-        sh.write(el+1, 1, IR_in[el])
-        sh.write(el+1, 2, blink_in[el])
-        sh.write(el+1, 3, light_in[el])
-        sh.write(el+1, 4, glance_in[el])
+        sh.write(el+1, 0, sample_in[el])
+        sh.write(el+1, 1, time_in[el].hour) #row, column, value
+        sh.write(el+1, 2, time_in[el].minute)
+        sh.write(el+1, 3, time_in[el].second)
+        sh.write(el+1, 4, time_in[el].microsecond)
+        sh.write(el+1, 5, IR_in[el])
+        sh.write(el+1, 6, blink_in[el])
+        sh.write(el+1, 7, light_in[el])
+        sh.write(el+1, 8, glance_in[el])
     workbook.save('Test2.xls')
 
 class BoundControlBox(wx.Panel):
@@ -123,6 +137,7 @@ class GraphFrame(wx.Frame):
         self.datagen = DataGen()
         #Remember, this comes in the form [IR1, IR2, IR3, light]
         self.data = self.datagen.next()
+        self.time = [datetime.now().time()]
         self.IR1 = [self.data[0]]
         self.lightAvg = 0
         self.light = [self.data[3]]
@@ -370,8 +385,8 @@ class GraphFrame(wx.Frame):
 #Start from here *********
     def on_save_data(self, event):
         self.paused = True
-        time = range(0,len(self.IR1))
-        output(time, self.IR1, self.blink, self.light, self.glance)
+        sample = range(0,len(self.IR1))
+        output(sample, self.time, self.IR1, self.blink, self.light, self.glance)
         self.paused = False
 
 
@@ -385,7 +400,7 @@ class GraphFrame(wx.Frame):
             IR1Append = self.dataAppend[0]
             LightAppend = self.dataAppend[3]
             self.IR1.append(IR1Append)
-            print len(self.IR1);
+            self.time.append(datetime.now().time())
             #Running average of previous three light values
             if self.safe == True:
                 if self.avg3Idx < 3:
