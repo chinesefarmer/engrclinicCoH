@@ -15,6 +15,7 @@ def receiving(usb, setting):
     usb.setDTR(True)
     
     buffer = ''
+    data = []
     
     while True:
         buffer = usb.readline()
