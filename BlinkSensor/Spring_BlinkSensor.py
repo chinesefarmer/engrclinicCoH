@@ -30,10 +30,7 @@ def receiving(usb):
     csv_writer(["Hour","Minute","Second","Microsecond","IR1"])
     
     while True:
-        #It also works if you just read the line instead of using a legit buffer
         buffer = usb.readline()
-        #buffer = buffer + usb.read(usb.inWaiting())
-        #raw_input("Press enter to continue...")
 
             
         if '\n' in buffer:
@@ -51,7 +48,6 @@ def receiving(usb):
                         print "Value Error"
                         
             else:
-                #print IR1
                 try:
                     IR1 = float(IR1)
                 except ValueError:
