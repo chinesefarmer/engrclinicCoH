@@ -16,6 +16,10 @@ def receiving(usb, setting):
     
     buffer = ''
     data = []
+<<<<<<< HEAD:SensorSerial.py
+=======
+    
+>>>>>>> e52a905dd4d61ab58e0d8e34f20ee8806bd0ef1a:BlinkSensor/OLD/SensorSerial.py
     while True:
         buffer = usb.readline()
         timeD = datetime.now().time()

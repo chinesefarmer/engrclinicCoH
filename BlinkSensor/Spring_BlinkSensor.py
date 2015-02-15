@@ -1,7 +1,6 @@
 import csv
 from serial import *
 from datetime import *
-from SensorSerial import *
 import time
 
 #YO TEAM!!!
@@ -17,21 +16,62 @@ def csv_writer(data):
         writer.writerow(data)
 
 #Set port and baudRate when calling this function
-def process(usb):
-
+def receiving(usb):
+    error = 0;
+    usb.timeout = 1
+    
+    #This hopefully resets the Arduino
+    usb.setDTR(False)
+    time.sleep(1)
+    usb.flushInput()
+    usb.setDTR(True)
+    
+    buffer = ''
     csv_writer(["Hour","Minute","Second","Microsecond","IR1"])
     
     while True:
-        data = receiving(usb,0)
-        csv_writer(data)
+        #It also works if you just read the line instead of using a legit buffer
+        buffer = usb.readline()
+        #buffer = buffer + usb.read(usb.inWaiting())
+        #raw_input("Press enter to continue...")
+
+            
+        if '\n' in buffer:
+            lines = buffer.split('\n')
+            IR1 = lines[-2]
+            if '\r' in IR1:
+                IR1Bogus = IR1.split('\r')
+                if len(IR1Bogus) > 12:
+                    print "Error"
+                else:
+                    try:
+                        IR1 = float(IR1Bogus[0])
+                    except ValueError:
+                        error = 1
+                        print "Value Error"
+                        
+            else:
+                #print IR1
+                try:
+                    IR1 = float(IR1)
+                except ValueError:
+                    error = 1
+                    print "Value Error"
+                     
+
+            timeD = datetime.now().time()
+            if(error == 1):
+                error = 0
+            else:
+                data = [timeD.hour,timeD.minute,timeD.second,timeD.microsecond,IR1]
+                csv_writer(data)
 
                 
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name w/ .csv at the end:  ')
     usb = Serial('/dev/cu.usbmodem621',57600)
-    usb.timeout = 1
-    process(usb)
+    receiving(usb)
     
 
 ###We want Refresh_Interval_Ms to be the smallest possible, which is 1 millisecond
