@@ -22,40 +22,80 @@ def csv_reader():
     with open(filename, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter = ',')
         next(reader)
-        totData = []
+##        totData = []
+##        AcclXTot = [];
+##        AcclYTot = [];
+##        AcclZTot = [];
+##
+##        GyroXTot = [];
+##        GyroYTot = [];
+##        GyroZTot = [];
+##
+##        MagXTot = [];
+##        MagYTot = [];
+##        MagZTot = [];
+
+        RollTot = [];
+        PitchTot = [];
+        YawTot = [];
+
+        for i in range(101):
+            next(reader)
+
+
         for row in reader:
-            totData.append(row)
-            print '' .join(row)
+            RollTot.append(float(row[9]))
+            PitchTot.append(float(row[10]))
+            YawTot.append(float(row[11]))            
 
-        print "done"
-        print totData
-        print len(totData)
+        smoothRoll = avgFilter(RollTot)
+        smoothPitch = avgFilter(PitchTot)
+        smoothYaw = avgFilter(YawTot)
 
-        for row2 in totData:
-            print row2
-            print "acclX"
-            print row2[0]
+        
+        pl.figure(1)
+        pl.subplot(311)
+        pl.plot(RollTot)
+        pl.plot(smoothRoll)
+        pl.title("Roll")
+        pl.subplot(312)
+        pl.plot(PitchTot)
+        pl.plot(smoothPitch)
+        pl.title("Pitch")
+        pl.subplot(313)
+        pl.plot(YawTot)
+        pl.plot(smoothYaw)
+        pl.title("Yaw")
+        pl.show()
+        
+        
+##            print '' .join(row)
+##
+##        print "done"
+##        print totData
+##        print len(totData)
+
+
+##            print row2
+##            print "acclX"
+##            print row2[0]
+
+def avgFilter(imuSignal):
+    # Change this to change the size of the moving avg filter
+    avgSize = 10
+    sigSize = len(imuSignal)
+    smoothSig = np.convolve(imuSignal, np.ones(avgSize)/avgSize, mode='same')
+    #Smooths the jumps from averaging by setting them to the first and last legitimate values
+    for i in range(avgSize):
+        smoothSig[i]=smoothSig[avgSize]
+        smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
+    return smoothSig
 
 #Set port and baudRate when calling this function
 def receiving(port, baudRate):
     #Initialize variables for roll, pitch, yaw calculations
     roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
     prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
-##    AcclXTot = np.array([]);
-##    AcclYTot = [];
-##    AcclZTot = [];
-##
-##    GyroXTot = [];
-##    GyroYTot = [];
-##    GyroZTot = [];
-##
-##    MagXTot = [];
-##    MagYTot = [];
-##    MagZTot = [];
-##
-##    RollTot = [];
-##    PitchTot = [];
-##    YawTot = [];
     
     #Other important variables
     frequencyLoop = 5
@@ -111,9 +151,6 @@ def receiving(port, baudRate):
 
                 if (n < 5):
                     n = n + 1
-                elif(n == 6):
-                    csv_reader()
-                    break
                 elif(n < calibrationNo):
                     n = n + 1
                     gyroDriftX = gyroDriftX + -1*GyroX
@@ -128,16 +165,16 @@ def receiving(port, baudRate):
 
                 else:
                     
-##                    global pauseCheck
-##                    if(pauseCheck == 0):                                            #Debugging
-####                        x = [1, 2, 3, 4, 5]
-####
-####                        y = [1, 4, 9, 16, 25]
-####
-####                        pl.plot(x, y)
-####                        pl.show()
-##                        pauseCheck = 1
-##                        raw_input("Please put on Headset, then press enter:")        #Debugging
+                    global pauseCheck
+                    if(pauseCheck == 0):                                            #Debugging
+##                        x = [1, 2, 3, 4, 5]
+##
+##                        y = [1, 4, 9, 16, 25]
+##
+##                        pl.plot(x, y)
+##                        pl.show()
+                        pauseCheck = 1
+                        raw_input("Please put on Headset, then press enter:")        #Debugging
 
                     
                     n = n + 1
@@ -172,6 +209,10 @@ def receiving(port, baudRate):
                 data = activeFilter(data)
                 csv_writer(data)
 
+                if(n >= 1000):
+                    csv_reader()
+                    break
+
 
 
 ##                AcclXTot.append(AcclX);
@@ -185,15 +226,15 @@ def receiving(port, baudRate):
 ##                    pl.plot(numSamples, AcclX)
 ##                    pl.show()
 
-                print "-----------------------------------------" 
-                print "Accl \t\t Mag \t\t Gyro"
-                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
-                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
-                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
-                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
-                print "Sample Number is: " + str(n)
-                print "-----------------------------------------"
-                print " "
+##                print "-----------------------------------------" 
+##                print "Accl \t\t Mag \t\t Gyro"
+##                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
+##                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
+##                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
+##                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
+##                print "Sample Number is: " + str(n)
+##                print "-----------------------------------------"
+##                print " "
 
 
 
