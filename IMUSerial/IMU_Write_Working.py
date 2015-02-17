@@ -5,6 +5,9 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 
+import datetime
+import time
+
 from IMU_filter import activeFilter
 
 
@@ -34,37 +37,39 @@ def csv_reader():
 ##        MagXTot = [];
 ##        MagYTot = [];
 ##        MagZTot = [];
-
         RollTot = [];
         PitchTot = [];
         YawTot = [];
+        timeTot = [];
 
         for i in range(101):
             next(reader)
+##
+##        for row in reader:
 
 
         for row in reader:
             RollTot.append(float(row[9]))
             PitchTot.append(float(row[10]))
-            YawTot.append(float(row[11]))            
+            YawTot.append(float(row[11]))
+            timeTot.append(float(row[12]))
 
         smoothRoll = avgFilter(RollTot)
         smoothPitch = avgFilter(PitchTot)
         smoothYaw = avgFilter(YawTot)
-
         
         pl.figure(1)
         pl.subplot(311)
-        pl.plot(RollTot)
-        pl.plot(smoothRoll)
+        pl.plot(timeTot,RollTot)
+        pl.plot(timeTot,smoothRoll)
         pl.title("Roll")
         pl.subplot(312)
-        pl.plot(PitchTot)
-        pl.plot(smoothPitch)
+        pl.plot(timeTot,PitchTot)
+        pl.plot(timeTot,smoothPitch)
         pl.title("Pitch")
         pl.subplot(313)
-        pl.plot(YawTot)
-        pl.plot(smoothYaw)
+        pl.plot(timeTot,YawTot)
+        pl.plot(timeTot,smoothYaw)
         pl.title("Yaw")
         pl.show()
         
@@ -99,13 +104,16 @@ def receiving(port, baudRate):
     
     #Other important variables
     frequencyLoop = 5
+    global calibrationNo
     calibrationNo = 100
     usb = Serial(port, baudRate)
     usb.timeout = 1
     global last_received
     buffer = ''
     error = 0
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw"])
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"])
+    global startTime
+    startTime = time.clock()
     
     while True:
 
@@ -167,12 +175,6 @@ def receiving(port, baudRate):
                     
                     global pauseCheck
                     if(pauseCheck == 0):                                            #Debugging
-##                        x = [1, 2, 3, 4, 5]
-##
-##                        y = [1, 4, 9, 16, 25]
-##
-##                        pl.plot(x, y)
-##                        pl.show()
                         pauseCheck = 1
                         raw_input("Please put on Headset, then press enter:")        #Debugging
 
@@ -204,8 +206,9 @@ def receiving(port, baudRate):
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
                     yaw = nextY*180/pi
-                    
-                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw]
+
+                currTime = time.clock() - startTime
+                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
                 data = activeFilter(data)
                 csv_writer(data)
 
