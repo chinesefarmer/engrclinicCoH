@@ -101,6 +101,7 @@ def receiving(port, baudRate):
     #Initialize variables for roll, pitch, yaw calculations
     roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
     prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+    acclXCal = 0; acclYCal = 0; acclZCal = 0
     
     #Other important variables
     frequencyLoop = 5
@@ -155,28 +156,88 @@ def receiving(port, baudRate):
                 except ValueError:
 ##                    print "VALUE ERROR OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"
                     continue
-
-
+                global pauseCheck
+                if(pauseCheck == 0):
+                    acclXCal += AcclX
+                    acclYCal += AcclY
+                    acclZCal += AcclZ
+                    
+                
                 if (n < 5):
                     n = n + 1
-                elif(n < calibrationNo):
+                elif(n < calibrationNo - 1):
                     n = n + 1
                     gyroDriftX = gyroDriftX + -1*GyroX
                     gyroDriftY = gyroDriftY + -1*GyroY
                     gyroDriftZ = gyroDriftZ + -1*GyroZ
 
-                elif(n == calibrationNo):
+                elif(n == calibrationNo - 1):
                     n = n + 1
                     gyroDriftX = gyroDriftX + calibrationNo
                     gyroDriftY = gyroDriftY + calibrationNo
                     gyroDriftZ = gyroDriftZ + calibrationNo
 
                 else:
-                    
-                    global pauseCheck
+    
                     if(pauseCheck == 0):                                            #Debugging
                         pauseCheck = 1
+                        acclXCal /= calibrationNo
+                        acclYCal /= calibrationNo
+                        acclZCal /= calibrationNo
+                        print acclXCal
+                        print acclYCal
+                        print acclZCal
+                        acclMagn = sqrt(acclXCal*acclXCal +acclYCal*acclYCal +acclZCal*acclZCal)
+                        print "acclMagnitude"
+                        print acclMagn
+
+                        w = -(acos(acclXCal/acclMagn)-pi/2)
+                        p = -(acos(acclYCal/acclMagn)-pi/2)
+                        k = -acos(acclZCal/acclMagn)
+                        print "Angles"
+                        print (w*180/pi)             #from x
+                        print (p*180/pi)
+                        print (k*180/pi)
+
+                        rotX1 = cos(p)*cos(k)                   #Calculate rotation matrix constants
+                        rotX2 = cos(w)*sin(k)+sin(w)*sin(p)*cos(k)
+                        rotX3 = sin(w)*sin(k) - cos(w)*sin(p)*cos(k)
+
+                        rotY1 = -cos(p)*sin(k)
+                        rotY2 = cos(w)*cos(k) - sin(w)*sin(p)*sin(k)
+                        rotY3 = sin(w)*cos(k)+cos(w)*sin(p)*sin(k)
+
+                        rotZ1 = sin(p)
+                        rotZ2 = -sin(w)*cos(p)
+                        rotZ3 = cos(w)*cos(p)
+##                        print xAngleOffset
+##                        print yAngleOffset
+##                        print zAngleOffset
+                        
+                        
+
+                        AcclX = acclXCal
+                        AcclY = acclYCal
+                        AcclZ = acclZCal
+                        
+                        coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
+                        coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
+                        coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
+                        print "Rotated Vector"
+                        print coordAcclX
+                        print coordAcclY
+                        print coordAcclZ
+                        
                         raw_input("Please put on Headset, then press enter:")        #Debugging
+                        
+                        
+                    coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
+                    coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
+                    coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
+
+                    AcclX = coordAcclX
+                    AcclY = coordAcclY
+                    AcclZ = coordAcclZ
 
                     
                     n = n + 1
@@ -188,6 +249,7 @@ def receiving(port, baudRate):
                             pitch = -1*pi/2
                     else:
                         pitch = atan(-1*AcclX / (AcclY*sin(roll) + AcclZ*cos(roll)))
+                        
                     yaw = atan2(MagZ*sin(roll) - MagY*cos(roll), MagX*cos(pitch)+
                                 MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll))
 
