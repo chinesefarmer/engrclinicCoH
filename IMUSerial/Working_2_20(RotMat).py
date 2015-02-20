@@ -13,44 +13,51 @@ from IMU_filter import activeFilter
 
 pauseCheck = 0;                                 # Debug code
 
-#The function writes a comma-delimited row of data into the file "filename"
+
 #When opening the csv file, remember to select the delimiter as commas
 #(open office is stupid and won't put the data in separate columns otherwise)
 def csv_writer(data):
     with open(filename, 'a') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(data)
-#Reads the comma-delimited csv file and writes it to lists.
-#Then plots the lists.
+
 def csv_reader():
     with open(filename, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter = ',')
-
+        next(reader)
+##        totData = []
+##        AcclXTot = [];
+##        AcclYTot = [];
+##        AcclZTot = [];
+##
+##        GyroXTot = [];
+##        GyroYTot = [];
+##        GyroZTot = [];
+##
+##        MagXTot = [];
+##        MagYTot = [];
+##        MagZTot = [];
         RollTot = [];
         PitchTot = [];
         YawTot = [];
         timeTot = [];
 
-        # Skips the first line which does not contain data
-        next(reader)
-        # Skips the calibration sequence to arrive at relevant
-        # RPY data
-        for i in range(calibrationNo):
+        for i in range(101):
             next(reader)
-        #Creates a list for RPY and time from the
-            #csv file
+##
+##        for row in reader:
+
+
         for row in reader:
             RollTot.append(float(row[9]))
             PitchTot.append(float(row[10]))
             YawTot.append(float(row[11]))
             timeTot.append(float(row[12]))
-            
-        #Applies the moving average
+
         smoothRoll = avgFilter(RollTot)
         smoothPitch = avgFilter(PitchTot)
         smoothYaw = avgFilter(YawTot)
         
-        #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
         pl.subplot(311)
         pl.plot(timeTot,RollTot)
@@ -66,13 +73,24 @@ def csv_reader():
         pl.title("Yaw")
         pl.show()
         
-#Applies a moving average filter
+        
+##            print '' .join(row)
+##
+##        print "done"
+##        print totData
+##        print len(totData)
+
+
+##            print row2
+##            print "acclX"
+##            print row2[0]
+
 def avgFilter(imuSignal):
-    avgSize = 10            #Determines the size of the avg filter
+    # Change this to change the size of the moving avg filter
+    avgSize = 10
     sigSize = len(imuSignal)
-    #Applies moving average
     smoothSig = np.convolve(imuSignal, np.ones(avgSize)/avgSize, mode='same')
-    #Sets the first and last few smoothed values to
+    #Smooths the jumps from averaging by setting them to the first and last legitimate values
     for i in range(avgSize):
         smoothSig[i]=smoothSig[avgSize]
         smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
@@ -211,17 +229,17 @@ def receiving(port, baudRate):
                         print coordAcclZ
                         
                         raw_input("Please put on Headset, then press enter:")        #Debugging
-##                        
-##                        
-##                    coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
-##                    coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
-##                    coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
-##
-##                    AcclX = coordAcclX
-##                    AcclY = coordAcclY
-##                    AcclZ = coordAcclZ
-##
-##                    
+                        
+                        
+                    coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
+                    coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
+                    coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
+
+                    AcclX = coordAcclX
+                    AcclY = coordAcclY
+                    AcclZ = coordAcclZ
+
+                    
                     n = n + 1
                     roll = atan2(AcclY, AcclZ)
                     if(AcclY*sin(roll) + AcclZ*cos(roll) == 0):
