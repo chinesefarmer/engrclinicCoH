@@ -18,7 +18,8 @@ def receiving(ser):
     buffer = ''
     while True:
         buffer = buffer + ser.read(ser.inWaiting())
-        #-93-12076	6718	-402	1037-9207	-12171	6635-374	11-9363	-11972	6711	-439	10392	1984	-322	71	-1118
+        #-93-12076	6718	-402	1037-9207	-12171	6635-374	11-9363	-11972	6711	-439	10392	1984	-322	71	-1118
+
         #print buffer
         #We will only do anything if there are more than 2 lines
             
