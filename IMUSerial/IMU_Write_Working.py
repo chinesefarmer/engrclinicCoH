@@ -8,8 +8,6 @@ import pylab as pl
 import datetime
 import time
 
-from IMU_filter import activeFilter
-
 
 pauseCheck = 0;                                 # Debug code
 
@@ -20,6 +18,7 @@ def csv_writer(data):
     with open(filename, 'a') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(data)
+        
 #Reads the comma-delimited csv file and writes it to lists.
 #Then plots the lists.
 def csv_reader():
@@ -88,15 +87,16 @@ def receiving(port, baudRate):
     #Other important variables
     frequencyLoop = 5
     global calibrationNo
-    calibrationNo = 100
+    calibrationNo = 100             # Number of iterations during calibration step
     usb = Serial(port, baudRate)
     usb.timeout = 1
     global last_received
     buffer = ''
     error = 0
+    # Writes the first line of csv file
     csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"])
     global startTime
-    startTime = time.clock()
+    startTime = time.clock()        # Records Starting time
     
     while True:
 
@@ -111,20 +111,25 @@ def receiving(port, baudRate):
 
             if '\t' in last_received_full:
                 last_received_tabbed = last_received_full.split('\t')
-##                print(last_received_tabbed)
-##                print len(last_received_tabbed)
 
+                # Will try to save data from buffer to variables.
+                # Otherwise will start to the loop over again
+                # Prevents indexing errors caused by too few values in the buffer
                 try:
                     GyroZ1 = last_received_tabbed[8]         #Keep this line at the end
                 except IndexError:
-##                    print "INDEX ERROR XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                     continue
-                
+
+                # Makes the string an actual float value
                 if '\r' in GyroZ1:
                     GyroZBogus = GyroZ1.split('\r')
                     GyroZ = GyroZBogus[0]
                 else:
                     GyroZ = GyroZ1
+
+                # Will try to save data from buffer to variables.
+                # Otherwise will start to the loop over again
+                # Prevents Value errors caused by non-float buffer values
                 try:
                     AcclX = float(last_received_tabbed[0])        
                     AcclY = float(last_received_tabbed[1])
@@ -136,15 +141,11 @@ def receiving(port, baudRate):
                     GyroY = float(last_received_tabbed[7])
                     GyroZ = float(GyroZ)
                 except ValueError:
-##                    print "VALUE ERROR OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"
                     continue
-                global pauseCheck
-                if(pauseCheck == 0):
-                    acclXCal += AcclX
-                    acclYCal += AcclY
-                    acclZCal += AcclZ
-                    
-                
+
+                # Calibration Sequence: Accounts for drift of gyro data
+                # During calibration, the IMU must be placed on a stationary
+                # surface
                 if (n < 5):
                     n = n + 1
                 elif(n < calibrationNo - 1):
@@ -158,70 +159,16 @@ def receiving(port, baudRate):
                     gyroDriftX = gyroDriftX + calibrationNo
                     gyroDriftY = gyroDriftY + calibrationNo
                     gyroDriftZ = gyroDriftZ + calibrationNo
-
+                # Calibration Sequence completed
                 else:
-    
-                    if(pauseCheck == 0):                                            #Debugging
+
+                    #Pause initiated to allow users to secure the IMU on user's head
+                    if(pauseCheck == 0):
                         pauseCheck = 1
-                        acclXCal /= calibrationNo
-                        acclYCal /= calibrationNo
-                        acclZCal /= calibrationNo
-                        print acclXCal
-                        print acclYCal
-                        print acclZCal
-                        acclMagn = sqrt(acclXCal*acclXCal +acclYCal*acclYCal +acclZCal*acclZCal)
-                        print "acclMagnitude"
-                        print acclMagn
-
-                        w = -(acos(acclXCal/acclMagn)-pi/2)
-                        p = -(acos(acclYCal/acclMagn)-pi/2)
-                        k = -acos(acclZCal/acclMagn)
-                        print "Angles"
-                        print (w*180/pi)             #from x
-                        print (p*180/pi)
-                        print (k*180/pi)
-
-                        rotX1 = cos(p)*cos(k)                   #Calculate rotation matrix constants
-                        rotX2 = cos(w)*sin(k)+sin(w)*sin(p)*cos(k)
-                        rotX3 = sin(w)*sin(k) - cos(w)*sin(p)*cos(k)
-
-                        rotY1 = -cos(p)*sin(k)
-                        rotY2 = cos(w)*cos(k) - sin(w)*sin(p)*sin(k)
-                        rotY3 = sin(w)*cos(k)+cos(w)*sin(p)*sin(k)
-
-                        rotZ1 = sin(p)
-                        rotZ2 = -sin(w)*cos(p)
-                        rotZ3 = cos(w)*cos(p)
-##                        print xAngleOffset
-##                        print yAngleOffset
-##                        print zAngleOffset
-                        
-                        
-
-                        AcclX = acclXCal
-                        AcclY = acclYCal
-                        AcclZ = acclZCal
-                        
-                        coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
-                        coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
-                        coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
-                        print "Rotated Vector"
-                        print coordAcclX
-                        print coordAcclY
-                        print coordAcclZ
-                        
-                        raw_input("Please put on Headset, then press enter:")        #Debugging
-##                        
-##                        
-##                    coordAcclX = rotX1*AcclX + rotX2*AcclY + rotX3*AcclZ
-##                    coordAcclY = rotY1*AcclX + rotY2*AcclY + rotY3*AcclZ
-##                    coordAcclZ = rotZ1*AcclX + rotZ2*AcclY + rotZ3*AcclZ
-##
-##                    AcclX = coordAcclX
-##                    AcclY = coordAcclY
-##                    AcclZ = coordAcclZ
-##
-##                    
+                        #Should be replaced with GUI interrupt that triggers when
+                        #the IMU is secured
+                        raw_input("Please put on Headset, then press enter:")
+              
                     n = n + 1
                     roll = atan2(AcclY, AcclZ)
                     if(AcclY*sin(roll) + AcclZ*cos(roll) == 0):
@@ -250,13 +197,16 @@ def receiving(port, baudRate):
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
                     yaw = nextY*180/pi
-
-                currTime = time.clock() - startTime
+                
+                currTime = time.clock() - startTime  # Time elapsed from start
+                #Saves the IMU data to a csv file
                 data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-                data = activeFilter(data)
                 csv_writer(data)
 
+                # Stops program after a number of samples have been collected
+                # Should be replaced with interrupt by GUI
                 if(n >= 1000):
+                    # Plots the RPY data
                     csv_reader()
                     break
 
