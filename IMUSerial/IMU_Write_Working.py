@@ -163,6 +163,7 @@ def receiving(port, baudRate):
                 else:
 
                     #Pause initiated to allow users to secure the IMU on user's head
+                    global pauseCheck
                     if(pauseCheck == 0):
                         pauseCheck = 1
                         #Should be replaced with GUI interrupt that triggers when
