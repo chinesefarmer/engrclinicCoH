@@ -179,10 +179,14 @@ def receiving(port, baudRate):
                             pitch = -1*pi/2
                     else:
                         pitch = atan(-1*AcclX / (AcclY*sin(roll) + AcclZ*cos(roll)))
-                        
-                    yaw = atan2(MagZ*sin(roll) - MagY*cos(roll), MagX*cos(pitch)+
-                                MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll))
 
+                    yawY = MagZ*sin(roll) - MagY*cos(roll)
+                    yawX = MagX*cos(pitch)+ MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll)
+                    yawOffset = 0
+                    
+                    yaw = atan2(yawY, yawX)
+##                    if(yaw
+                    
                     gX = abs(GyroX + gyroDriftX)
                     gY = abs(GyroY + gyroDriftY)
                     gZ = abs(GyroZ + gyroDriftZ)
@@ -197,7 +201,7 @@ def receiving(port, baudRate):
 
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
-                    yaw = nextY*180/pi
+                    yaw = abs(nextY*180/pi)
                 
                 currTime = time.clock() - startTime  # Time elapsed from start
                 #Saves the IMU data to a csv file
