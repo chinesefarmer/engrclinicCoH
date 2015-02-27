@@ -8,7 +8,7 @@ import pylab as pl
 import datetime
 import time
 
-
+avgSize = 20  # Moving Average Filter Sample Size
 pauseCheck = 0;                                 # Debug code
 
 #The function writes a comma-delimited row of data into the file "filename"
@@ -50,24 +50,37 @@ def csv_reader():
         smoothYaw = avgFilter(YawTot)
 
         #Find the time spent at each angle
-        rollDist = timeAtAngle(timeTot,smoothRoll)
+        [rollAngleList, rollDist] = timeAtAngle(timeTot,smoothRoll)
+        [pitchAngleList, pitchDist] = timeAtAngle(timeTot,smoothPitch)
+        [yawAngleList, yawDist] = timeAtAngle(timeTot,smoothYaw)
+        
         
         #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
-        pl.subplot(311)
+        pl.subplot(321)
         pl.plot(timeTot,RollTot)
         pl.plot(timeTot,smoothRoll)
         pl.title("Roll")
-        pl.subplot(312)
+        pl.subplot(323)
         pl.plot(timeTot,PitchTot)
         pl.plot(timeTot,smoothPitch)
         pl.title("Pitch")
-        pl.subplot(313)
-##        pl.plot(timeTot,YawTot)
-##        pl.plot(timeTot,smoothYaw)
-##        pl.title("Yaw")
-        pl.plot(rollDist)
-        pl.title("Time spent with head at angle")
+        pl.subplot(325)
+        pl.plot(timeTot,YawTot)
+        pl.plot(timeTot,smoothYaw)
+        pl.title("Yaw")
+        
+        pl.subplot(322)
+        pl.plot(rollAngleList,rollDist)
+        pl.title("Time spent with head at Roll angle")
+
+        pl.subplot(324)
+        pl.plot(pitchAngleList,pitchDist)
+        pl.title("Time spent with head at Pitch angle")
+
+        pl.subplot(326)
+        pl.plot(yawAngleList,yawDist)
+        pl.title("Time spent with head at Yaw angle")
         
         pl.show()
 
@@ -77,7 +90,7 @@ def csv_reader():
 
 #Applies a moving average filter
 def avgFilter(imuSignal):
-    avgSize = 10            #Determines the size of the avg filter
+    global avgSize            #Determines the size of the avg filter
     sigSize = len(imuSignal)
     #Applies moving average
     smoothSig = np.convolve(imuSignal, np.ones(avgSize)/avgSize, mode='same')
@@ -87,19 +100,27 @@ def avgFilter(imuSignal):
         smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
     return smoothSig
 
+# Creates a list of the angles and a list of the amount of time spent at those angles
 def timeAtAngle(time,angle):
+    # Assumption: All timesteps are close to the average time step
     avgTimeStep = (max(time)-min(time))/len(time)
-    print int(max(angle))
     minAngle = int(min(angle))
-    # Array of zeros with a fixed size equal to the total number of int angles
-    angleTimes = np.zeros(int(max(angle))-minAngle)
     
-    print len(angleTimes)
+    # Array of zeros with a fixed size equal to the total number of whole number angles
+    angleTimes = np.zeros(int(max(angle))-minAngle)
     timeAtAng = []
+
+    # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
     for i in range(len(angle)-1):
         angleTimes[int(angle[i])-minAngle - 1] += avgTimeStep
-    
-    return angleTimes
+    # Creates a list of angle values that corresponds to the times above
+    angleList = [x+minAngle for x in range(len(angleTimes))]
+
+    return [angleList , angleTimes]
+
+def targetFacing():
+    return
+
 
 #Set port and baudRate when calling this function
 def receiving(port, baudRate):
@@ -207,12 +228,12 @@ def receiving(port, baudRate):
                     else:
                         pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
 
-                    yawY = MagZ*sin(roll) - MagY*cos(roll)
-                    yawX = MagX*cos(pitch)+ MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll)
+                    yawY = MagY*sin(roll) - MagZ*cos(roll)
+                    yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
+
                     yawOffset = 0
                     
                     yaw = atan2(yawY, yawX)
-##                    if(yaw
                     
                     gX = abs(GyroX + gyroDriftX)
                     gY = abs(GyroY + gyroDriftY)
@@ -237,7 +258,7 @@ def receiving(port, baudRate):
 
                 # Stops program after a number of samples have been collected
                 # Should be replaced with interrupt by GUI
-                if(n >= 1000):
+                if(n >= 2000):
                     # Plots the RPY data
                     csv_reader()
                     break
