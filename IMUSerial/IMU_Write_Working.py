@@ -48,6 +48,9 @@ def csv_reader():
         smoothRoll = avgFilter(RollTot)
         smoothPitch = avgFilter(PitchTot)
         smoothYaw = avgFilter(YawTot)
+
+        #Find the time spent at each angle
+        rollDist = timeAtAngle(timeTot,smoothRoll)
         
         #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
@@ -60,11 +63,18 @@ def csv_reader():
         pl.plot(timeTot,smoothPitch)
         pl.title("Pitch")
         pl.subplot(313)
-        pl.plot(timeTot,YawTot)
-        pl.plot(timeTot,smoothYaw)
-        pl.title("Yaw")
-        pl.show()
+##        pl.plot(timeTot,YawTot)
+##        pl.plot(timeTot,smoothYaw)
+##        pl.title("Yaw")
+        pl.plot(rollDist)
+        pl.title("Time spent with head at angle")
         
+        pl.show()
+
+
+
+
+
 #Applies a moving average filter
 def avgFilter(imuSignal):
     avgSize = 10            #Determines the size of the avg filter
@@ -76,6 +86,20 @@ def avgFilter(imuSignal):
         smoothSig[i]=smoothSig[avgSize]
         smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
     return smoothSig
+
+def timeAtAngle(time,angle):
+    avgTimeStep = (max(time)-min(time))/len(time)
+    print int(max(angle))
+    minAngle = int(min(angle))
+    # Array of zeros with a fixed size equal to the total number of int angles
+    angleTimes = np.zeros(int(max(angle))-minAngle)
+    
+    print len(angleTimes)
+    timeAtAng = []
+    for i in range(len(angle)-1):
+        angleTimes[int(angle[i])-minAngle - 1] += avgTimeStep
+    
+    return angleTimes
 
 #Set port and baudRate when calling this function
 def receiving(port, baudRate):
@@ -171,14 +195,17 @@ def receiving(port, baudRate):
                         raw_input("Please put on Headset, then press enter:")
               
                     n = n + 1
-                    roll = atan2(AcclY, AcclZ)
-                    if(AcclY*sin(roll) + AcclZ*cos(roll) == 0):
+
+                    roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
+
+                    # Calculates the pitch while accounting for edge cases
+                    if(AcclZ*sin(roll) + AcclY*cos(roll) == 0):
                         if(AcclX > 0):
                             pitch = pi/2
                         else:
                             pitch = -1*pi/2
                     else:
-                        pitch = atan(-1*AcclX / (AcclY*sin(roll) + AcclZ*cos(roll)))
+                        pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
 
                     yawY = MagZ*sin(roll) - MagY*cos(roll)
                     yawX = MagX*cos(pitch)+ MagY*sin(pitch)*sin(roll) + MagZ*sin(pitch)*cos(roll)
