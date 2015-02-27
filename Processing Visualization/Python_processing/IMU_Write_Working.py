@@ -14,14 +14,14 @@ pauseCheck = 0;                                 # Debug code
 #The function writes a comma-delimited row of data into the file "filename"
 #When opening the csv file, remember to select the delimiter as commas
 #(open office is stupid and won't put the data in separate columns otherwise)
-def csv_writer(data):
+def csv_writer(data, filename):
     with open(filename, 'a') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(data)
         
 #Reads the comma-delimited csv file and writes it to lists.
 #Then plots the lists.
-def csv_reader():
+def csv_reader(filename):
     with open(filename, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter = ',')
 
@@ -78,7 +78,7 @@ def avgFilter(imuSignal):
     return smoothSig
 
 #Set port and baudRate when calling this function
-def receiving(port, baudRate):
+def receiving(port, baudRate, filename):
     #Initialize variables for roll, pitch, yaw calculations
     roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
     prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
@@ -94,7 +94,7 @@ def receiving(port, baudRate):
     buffer = ''
     error = 0
     # Writes the first line of csv file
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"])
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"], filename)
     global startTime
     startTime = time.clock()        # Records Starting time
     
@@ -206,13 +206,13 @@ def receiving(port, baudRate):
                 currTime = time.clock() - startTime  # Time elapsed from start
                 #Saves the IMU data to a csv file
                 data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-                csv_writer(data)
+                csv_writer(data, filename)
 
                 # Stops program after a number of samples have been collected
                 # Should be replaced with interrupt by GUI
                 if(n >= 1000):
                     # Plots the RPY data
-                    csv_reader()
+                    csv_reader(filename)
                     break
 
 
@@ -243,9 +243,10 @@ def receiving(port, baudRate):
             #buffer = lines[-1]
                 
 
-if __name__=='__main__':
-    filename = raw_input('Enter a file name:  ')+ ".csv"
-    arduinoData = receiving('COM4',57600)
+#if __name__=='__main__':
+def IMU_write():
+    filename = "kat_try.csv"#raw_input('Enter a file name:  ')+ ".csv"
+    arduinoData = receiving('COM4',57600, filename)
 
 
 

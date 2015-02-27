@@ -2,6 +2,7 @@ import cmd
 import subprocess
 import shlex
 import wx
+import IMU_Write_Working
 
 # Gui_main.py
 # This is the main 
@@ -27,17 +28,21 @@ class IMUPanel(wx.Panel):
 
 		self.parent = parent  # Sometimes one can use inline Comments
 
-		NothingBtn = wx.Button(self, label="Do Nothing with a long label")
-		NothingBtn.Bind(wx.EVT_BUTTON, self.DoNothing )
+		startBtn = wx.Button(self, label="Run IMU")
+		startBtn.Bind(wx.EVT_BUTTON, self.startIMU )
 
 		MsgBtn = wx.Button(self, label="Send Message")
 		MsgBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
 
 		Sizer = wx.BoxSizer(wx.VERTICAL)
-		Sizer.Add(NothingBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		Sizer.Add(startBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
 		Sizer.Add(MsgBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
 
 		self.SetSizerAndFit(Sizer)
+	def startIMU(self, event=None):
+		"""start IMU"""
+		IMU_Write_Working.IMU_write()
+
 
 	def DoNothing(self, event=None):
 		"""Do nothing."""
@@ -105,25 +110,66 @@ class BlinkPanel(wx.Panel):
 
 
 ################################################################################
+class CameraPanel(wx.Panel):
+	"""This panel holds Extra Controls for controlling the camera"""
 
+	#----------------------------------------------------------------------
+	def __init__(self, parent):
+		"""Constructor"""
+		wx.Panel.__init__(self, parent)
 
+		self.parent = parent  # Sometimes one can use inline Comments
+
+		CameraStartBtn = wx.Button(self, label="Start Stream")
+		CameraStartBtn.Bind(wx.EVT_BUTTON, self.onStart )
+
+		CameraStopBtn = wx.Button(self, label="Stop Stream")
+		CameraStopBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
+
+		Sizer = wx.BoxSizer(wx.VERTICAL)
+		Sizer.Add(CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		Sizer.Add(CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+
+		self.SetSizerAndFit(Sizer)
+	def onStart(self, event=None):
+		runCamera(False)
+
+	def DoNothing(self, event=None):
+		"""Do nothing."""
+		pass
+
+	def OnMsgBtn(self, event=None):
+		"""Bring up a wx.MessageDialog with a useless message."""
+		dlg = wx.MessageDialog(self,
+							   message='A completely useless message',
+							   caption='A Message Box',
+							   style=wx.OK|wx.ICON_INFORMATION
+							   )
+		dlg.ShowModal()
+		dlg.Destroy()
+
+################################################################################
 class MainFrame(wx.Frame):
 	def __init__(self, parent, title):
-		wx.Frame.__init__(self,parent, title=title, size=(200,100))
+		wx.Frame.__init__(self,parent, title=title, size=(300,400))
 		# initialize menu bar
 		self.CreateStatusBar() # A Statusbar in the bottom of the window
 
 		#add widgets
-		self.Panel = IMUPanel(self)
-		self.Panel = BlinkPanel(self)
+		self.Panel1 = IMUPanel(self)
+		self.Panel2 = BlinkPanel(self)
+		self.Panel3 = CameraPanel(self)
 
 		#resize them
-		Sizer = wx.BoxSizer(wx.VERTICAL)
-		Sizer.Add(IMUPanel, 0, wx.ALIGN_LEFT|wx.ALL, 5)
-		Sizer.Add(BlinkPanel, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
+		sizer = wx.BoxSizer(wx.HORIZONTAL)
+		sizer.Add(self.Panel1, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		sizer.AddSpacer(5,5)
+		sizer.Add(self.Panel2, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		sizer.AddSpacer(5,5)
+		sizer.Add(self.Panel3, 0, wx.ALIGN_CENTER|wx.ALL, 5)
 
-		self.SetSizerAndFit(Sizer)
-
+		self.SetSizerAndFit(sizer)
+		#self.Fit()
 		# Setting up the menu bar
 		filemenu= wx.Menu()
 
@@ -151,9 +197,13 @@ class MainFrame(wx.Frame):
 
 		
 ################################################################################
-def runCamera():
+def runCamera(saving=True):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 	save='--sout= \"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+	if saving:
+	 save = save
+	else:
+		save = ''
 	command_line = stream + save
 	#print command_line
 	args = shlex.split(command_line)
