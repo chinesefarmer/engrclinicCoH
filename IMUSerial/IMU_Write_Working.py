@@ -43,6 +43,8 @@ def csv_reader():
             PitchTot.append(float(row[10]))
             YawTot.append(float(row[11]))
             timeTot.append(float(row[12]))
+
+        totalOpTime = max(timeTot) - min(timeTot)
             
         #Applies the moving average
         smoothRoll = avgFilter(RollTot)
@@ -53,6 +55,11 @@ def csv_reader():
         [rollAngleList, rollDist] = timeAtAngle(timeTot,smoothRoll)
         [pitchAngleList, pitchDist] = timeAtAngle(timeTot,smoothPitch)
         [yawAngleList, yawDist] = timeAtAngle(timeTot,smoothYaw)
+
+        #Calculate time spent looking at operating table
+        percentFocused = detectTable(pitchAngleList, pitchDist, totalOpTime)
+        print "Perecent Time Focused: "
+        print percentFocused
         
         
         #Plots the RPY data in a 3x1 figure with titles
@@ -118,8 +125,23 @@ def timeAtAngle(time,angle):
 
     return [angleList , angleTimes]
 
-def targetFacing():
-    return
+# Find the max Time at a negative angle and determine a range around it
+# The percentage is the time in angle over total time
+# Assumption: The head needs to be facing downwards to see the operating table
+# Warning: This is a highly rudimentary algorithm. Only uses the Pitch to calculate
+# the operating table
+def detectTable(angles, angleDist, totalTime):
+    maxIncline = 0                  #Max Possible Pitch angle and still be facing the table
+    acceptableRange = 5             #The range about the angle that still counts as facing the table
+
+    # 
+    if(angles.count(0) != 0):
+        locZero = angles.index(0)
+        operateAngle = max(angleDist[0:locZero])
+        
+        
+    else:
+        return 0
 
 
 #Set port and baudRate when calling this function
