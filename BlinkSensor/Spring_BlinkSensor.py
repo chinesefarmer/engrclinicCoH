@@ -7,6 +7,8 @@ IRVector = []
 tVector = []
 derivVector = []
 blinkVector = []
+subBlink = []
+debug = False
 
 #YO TEAM!!!
 #You must ALWAYS type usb.close() after you keyboard interrupt the code to quit
@@ -96,7 +98,8 @@ def receiving(usb):
                 else:
                     #Do some blink sensing stuff
                     IRVector.append(IR1)
-                    tVector.append((timeD.second + 0.000001*timeD.microsecond))
+                    minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
+                    tVector.append(minutes)
                     if(len(IRVector) > 1):
                         i = len(IRVector)-1
                         
@@ -105,7 +108,8 @@ def receiving(usb):
                         derivVector.append(deriv)
                         
                         if(trackPos):
-                            #print "Tracking positive slope"
+                            if debug:
+                                print "Tracking positive slope"
                             if(len(derivVector)<n):
                                 runningAvg = sum(derivVector)/len(derivVector)
                             else:
@@ -116,8 +120,9 @@ def receiving(usb):
                             #and the slope hasn't been within the threshold for n or more values
                             if(runningAvg < posSlopeThresh and len(derivVector) < n):
                                 blinkVector.extend([0]*(i-startIndex))
-                                #print "False Positive Alarm w/ Deriv: " + str(deriv)
-                                #print "Time = " + str(time[i])
+                                if debug:
+                                    print "False Positive Alarm w/ Deriv: " + str(deriv)
+                                    print "Time = " + str(time[i])
                                 trackPos = False
                                 runningAvg = 0
                                 startT = 0
@@ -142,13 +147,15 @@ def receiving(usb):
                                             endIR = IRVector[i-2]
                                             if(endIR == peak):
                                                 blinkVector.extend([0]*(i-startIndex+1))
-                                                #print "Bad"
+                                                if debug:
+                                                    print "Bad"
                                             elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
-                                                #print "Ending time is: " + str(endT)
-                                                #print "Ending deriv is " + str(deriv)
-                                                blinkRange.append([startT, endT, peak])
+                                                if debug:
+                                                    print "Ending time is: " + str(endT)
+                                                    print "Ending deriv is " + str(deriv)
+                                                blinkRange.append([startT, endT])
                                                 blinkVector.extend(IRVector[startIndex:i+1])
-                                                print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
+                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
                                             else:
                                                 blinkVector.extend([0]*(i-startIndex+1))
                                                  
@@ -182,10 +189,11 @@ def receiving(usb):
                                         if(endIR == peak):
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
-                                            #print "Ending time is: " + str(endT)
-                                            blinkRange.append([startT, endT, peak])
+                                            if debug:
+                                                print "Ending time is: " + str(endT)
+                                            blinkRange.append([startT, endT])
                                             blinkVector.extend(IRVector[startIndex:i+1])
-                                            print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
+                                            print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
                                         else:
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         endT = 0
@@ -201,19 +209,22 @@ def receiving(usb):
                                         positive = 0
                                 
                         elif(trackNeg):
-                            #print "Tracking negative slope w/ deriv: " + str(deriv)
+                            if debug:
+                                print "Tracking negative slope w/ deriv: " + str(deriv)
                             if(len(derivVector)<n):
                                 runningAvg = sum(derivVector)/len(derivVector)
                             else:
                                 runningAvg = sum(derivVector[i-(n-1):i+1])/n
-                            #print "Running Average: " + str(runningAvg)
+                            if debug:    
+                                print "Running Average: " + str(runningAvg)
                             
                             #This means it was a false alarm, I may need two positive thresholds
                             #I'm saying this isn't a blink if the running average falls below a threshold
                             #and the slope hasn't been within the threshold for n or more values
                             if(runningAvg > negSlopeThresh and len(derivVector) < n):
-                                #print "False Negative Alarm w/ Deriv: " + str(deriv)
-                                #print "Time = " + str(time[i])
+                                if debug:
+                                    print "False Negative Alarm w/ Deriv: " + str(deriv)
+                                    print "Time = " + str(time[i])
                                 trackNeg = False
                                 runningAvg = 0
                                 startT = 0
@@ -240,9 +251,10 @@ def receiving(usb):
                                             if(endIR == valley):
                                                 blinkVector.extend([0]*(i-startIndex+1))
                                             elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
-                                                #print "Ending time is: " + str(endT)
-                                                blinkRange.append([startT, endT, valley])
-                                                print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
+                                                if debug:
+                                                    print "Ending time is: " + str(endT)
+                                                blinkRange.append([startT, endT])
+                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
                                                 blinkVector.extend(IRVector[startIndex:i+1])
                                             else:
                                                 blinkVector.extend([0]*(i-startIndex+1))
@@ -278,10 +290,11 @@ def receiving(usb):
                                         if(endIR == valley):
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
-                                            #print "Ending time is: " + str(endT)
-                                            blinkRange.append([startT, endT, valley])
+                                            if debug:
+                                                print "Ending time is: " + str(endT)
+                                            blinkRange.append([startT, endT])
                                             blinkVector.extend(IRVector[startIndex:i+1])
-                                            print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
+                                            print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
                                         else:
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         trackNeg = False
@@ -302,7 +315,8 @@ def receiving(usb):
                             #May be dealing with a peak
                             if(deriv >= posSlopeThresh):
                                 #start tracking the slope!
-                                #print "Looking for peak at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
+                                if debug:
+                                    print "Looking for peak at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
                                 trackPos = True
                                 startT = tVector[i-1]
                                 startIndex = i-1
@@ -310,7 +324,8 @@ def receiving(usb):
                                 peak = IRVector[i-1]
                             #May be dealing with a valley
                             elif(deriv <= negSlopeThresh):
-                                #print "Looking for valley at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
+                                if debug:
+                                    print "Looking for valley at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
                                 trackNeg = True
                                 startT = tVector[i-1]
                                 startIR = IRVector[i-1]
@@ -324,13 +339,18 @@ def receiving(usb):
                                 valley = 0
                                 blinkVector.append(0)
 
-                    data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month), "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
+                    data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month),
+                            "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
                             (timeD.second + 0.000001*timeD.microsecond) ,IR1]
                     csv_writer(data)
+                    #may not work....
+                    if(len(blinkRange)>0):
+                        BlinksInWindow(0.5,blinkRange[-1])
+    
+    #change from 0 to blank
     except KeyboardInterrupt:
         usb.close()
         print blinkRange
-        print blinkRange[0]
         blinkVector.append(0)
         blinkVector = blinkVector[0:len(IRVector)]
         with open(filename, 'rb') as input, open((filename[:-4] + 'Full.csv' ), 'wb') as output:
@@ -342,10 +362,9 @@ def receiving(usb):
             row.insert(4, 'Blink')
             all.append(row)
             currentBlink = blinkRange[0]
-            print currentBlink[0]
             for k, row in enumerate(reader):
                 if(len(blinkRange)==0):
-                    row.insert(4, 0)
+                    row.insert(4, '')
                     all.append(row)
                 else:
                     rowVector = row[0].split(',')
@@ -364,15 +383,38 @@ def receiving(usb):
                         row.insert(4, IRVector[k])
                         all.append(row)
                     else:
-                        row.insert(4, 0)
+                        row.insert(4, '')
                         all.append(row)
 
             writer.writerows(all)
 
+#tWindow must be in minutes (e.g. 60 minutes instead of 1 hour)
+def BlinksInWindow(tWindow, newBlink):
+    global subBlink
+    timeD = datetime.now().time()
+    tEnd = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
+    tBegin = tEnd - tWindow
 
+    if(len(subBlink)==0 or newBlink != subBlink[-1]):
+       subBlink.append(newBlink)
+    firstBlink = subBlink[0]
+
+    if(firstBlink[0] < tBegin):
+        subBlink = subBlink[1:]
+    print "You have blinked " + str(len(subBlink))+" times in the last "+str(tWindow)+" minutes"
+    return len(subBlink)
+    
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name w/ .csv at the end:  ')
     usb = Serial('/dev/cu.usbmodem621',57600)
     receiving(usb)
+
+"""
+I want to be taking the blink vector andwrite a function that Kat can use, that takes as input a time window, and the most recent blink value
+from the blink vector. It creates a subBlinkVector that is global or saved somehow, and tacks on blinks until.
+It checks each time if the first blink falls outside the window. If so, it removes it from the vector. I'll just send
+to Kat the number of times you've blinked in that window, so the output is just an integer.
+
     
+"""
