@@ -25,6 +25,7 @@ def csv_reader():
     with open(filename, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter = ',')
 
+        GyroYTot = [];
         RollTot = [];
         PitchTot = [];
         YawTot = [];
@@ -39,6 +40,7 @@ def csv_reader():
         #Creates a list for RPY and time from the
             #csv file
         for row in reader:
+            GyroYTot.append(float(row[7]))
             RollTot.append(float(row[9]))
             PitchTot.append(float(row[10]))
             YawTot.append(float(row[11]))
@@ -59,7 +61,11 @@ def csv_reader():
         #Calculate time spent looking at operating table
         percentFocused = detectTable(pitchAngleList, pitchDist, totalOpTime)
         print "Perecent Time Focused: "
-        print percentFocused
+        print percentFocused * 100
+
+        # Integrates the Gyroscope Data
+        gyroYaw = calcGyroYaw(timeTot, GyroYTot)
+        smoothGyro = avgFilter(gyroYaw)
         
         
         #Plots the RPY data in a 3x1 figure with titles
@@ -89,6 +95,14 @@ def csv_reader():
         pl.plot(yawAngleList,yawDist)
         pl.title("Time spent with head at Yaw angle")
         
+        pl.show()
+
+        pl.figure(2)
+        pl.subplot(2,1,1)
+##        pl.plot(timeTot,gyroYaw)
+        pl.plot(timeTot,smoothGyro)
+        pl.subplot(2,1,2)
+        pl.plot(timeTot,GyroYTot)
         pl.show()
 
 
@@ -125,23 +139,43 @@ def timeAtAngle(time,angle):
 
     return [angleList , angleTimes]
 
-# Find the max Time at a negative angle and determine a range around it
-# The percentage is the time in angle over total time
+# Calculates the approximate orientation that the head needs to be oriented in order to be facing the
+# operating field and calculates the percentage of time the head is facing that way
 # Assumption: The head needs to be facing downwards to see the operating table
 # Warning: This is a highly rudimentary algorithm. Only uses the Pitch to calculate
 # the operating table
 def detectTable(angles, angleDist, totalTime):
     maxIncline = 0                  #Max Possible Pitch angle and still be facing the table
     acceptableRange = 5             #The range about the angle that still counts as facing the table
+    minAngle = min(angles)
+    maxAngle = max(angles)
 
-    # 
+
     if(angles.count(0) != 0):
         locZero = angles.index(0)
-        operateAngle = max(angleDist[0:locZero])
-        
+        operateAngle = np.argmax(angleDist[0:locZero])
+
+        timeTarget = 0              # Time facing the target operating field
+        for i in range(2*acceptableRange):
+            # Ensures that the angle lies within the array
+            if(operateAngle + i - acceptableRange < minAngle or operateAngle + i - acceptableRange > maxAngle):
+                continue
+            else:
+                # Accumulate all time values within the acceptable range about the calculated center
+                # of operating table
+                timeTarget += angleDist[angles[angles.index(operateAngle + i - acceptableRange)]]
+                
+        return timeTarget/totalTime
         
     else:
         return 0
+
+def calcGyroYaw(timeTot, gyro):
+    yawAngle = [0]
+    for i in range(len(gyro)-1):
+        yawAngle.append(gyro[i]*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])
+
+    return yawAngle
 
 
 #Set port and baudRate when calling this function
