@@ -8,8 +8,9 @@ import pylab as pl
 import datetime
 import time
 
-avgSize = 20  # Moving Average Filter Sample Size
+avgSize = 20                    # Moving Average Filter Sample Size
 pauseCheck = 0;                                 # Debug code
+SAMPLE_LENGTH = 500
 
 #The function writes a comma-delimited row of data into the file "filename"
 #When opening the csv file, remember to select the delimiter as commas
@@ -47,6 +48,7 @@ def csv_reader():
             timeTot.append(float(row[12]))
 
         totalOpTime = max(timeTot) - min(timeTot)
+        print totalOpTime/len(timeTot)
             
         #Applies the moving average
         smoothRoll = avgFilter(RollTot)
@@ -70,40 +72,42 @@ def csv_reader():
         
         #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
-        pl.subplot(321)
+        pl.subplot(421)
         pl.plot(timeTot,RollTot)
         pl.plot(timeTot,smoothRoll)
         pl.title("Roll")
-        pl.subplot(323)
+        pl.subplot(423)
         pl.plot(timeTot,PitchTot)
         pl.plot(timeTot,smoothPitch)
         pl.title("Pitch")
-        pl.subplot(325)
+        pl.subplot(425)
         pl.plot(timeTot,YawTot)
         pl.plot(timeTot,smoothYaw)
         pl.title("Yaw")
         
-        pl.subplot(322)
+        pl.subplot(422)
         pl.plot(rollAngleList,rollDist)
         pl.title("Time spent with head at Roll angle")
 
-        pl.subplot(324)
+        pl.subplot(424)
         pl.plot(pitchAngleList,pitchDist)
         pl.title("Time spent with head at Pitch angle")
 
-        pl.subplot(326)
+        pl.subplot(426)
         pl.plot(yawAngleList,yawDist)
         pl.title("Time spent with head at Yaw angle")
+
+
+        pl.subplot(4,2,7)
+        pl.plot(timeTot,gyroYaw)
+        pl.plot(timeTot,smoothGyro)
+        
+        pl.subplot(4,2,8)
+        pl.plot(timeTot,GyroYTot)
         
         pl.show()
 
-        pl.figure(2)
-        pl.subplot(2,1,1)
-##        pl.plot(timeTot,gyroYaw)
-        pl.plot(timeTot,smoothGyro)
-        pl.subplot(2,1,2)
-        pl.plot(timeTot,GyroYTot)
-        pl.show()
+
 
 
 
@@ -172,8 +176,13 @@ def detectTable(angles, angleDist, totalTime):
 
 def calcGyroYaw(timeTot, gyro):
     yawAngle = [0]
-    for i in range(len(gyro)-1):
-        yawAngle.append(gyro[i]*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])
+    yawAngle.append(0)
+    print gyroDriftY
+    print len(timeTot)
+    print len(gyro)
+    for i in range(1,len(gyro)-1):
+        print (timeTot[i]-timeTot[i-1])
+        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
 
     return yawAngle
 
@@ -181,6 +190,7 @@ def calcGyroYaw(timeTot, gyro):
 #Set port and baudRate when calling this function
 def receiving(port, baudRate):
     #Initialize variables for roll, pitch, yaw calculations
+    global gyroDriftY
     roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
     prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
     acclXCal = 0; acclYCal = 0; acclZCal = 0
@@ -251,15 +261,15 @@ def receiving(port, baudRate):
                     n = n + 1
                 elif(n < calibrationNo - 1):
                     n = n + 1
-                    gyroDriftX = gyroDriftX + -1*GyroX
-                    gyroDriftY = gyroDriftY + -1*GyroY
-                    gyroDriftZ = gyroDriftZ + -1*GyroZ
+                    gyroDriftX = gyroDriftX - GyroX
+                    gyroDriftY = gyroDriftY - GyroY
+                    gyroDriftZ = gyroDriftZ - GyroZ
 
                 elif(n == calibrationNo - 1):
                     n = n + 1
-                    gyroDriftX = gyroDriftX + calibrationNo
-                    gyroDriftY = gyroDriftY + calibrationNo
-                    gyroDriftZ = gyroDriftZ + calibrationNo
+                    gyroDriftX = gyroDriftX / calibrationNo
+                    gyroDriftY = gyroDriftY / calibrationNo
+                    gyroDriftZ = gyroDriftZ / calibrationNo
                 # Calibration Sequence completed
                 else:
 
@@ -300,8 +310,8 @@ def receiving(port, baudRate):
                     prevY = nextY
 
                     nextR = (prevR + roll*gX) / (1 + gX)
-                    nextP = (prevP + pitch * gY) / (1 + gY)
-                    nextY = (prevY + yaw * gZ) / (1 + gZ)
+                    nextP = (prevP + pitch * gZ) / (1 + gZ)
+                    nextY = (prevY + yaw * gY) / (1 + gY)
 
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
@@ -314,7 +324,8 @@ def receiving(port, baudRate):
 
                 # Stops program after a number of samples have been collected
                 # Should be replaced with interrupt by GUI
-                if(n >= 2000):
+                global SAMPLE_LENGTH
+                if(n >= SAMPLE_LENGTH):
                     # Plots the RPY data
                     csv_reader()
                     break
