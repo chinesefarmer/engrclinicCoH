@@ -9,6 +9,11 @@ derivVector = []
 blinkVector = []
 subBlink = []
 debug = False
+tWindow = 1.0/3
+tPrintBlink = 1.0/6
+minutes = 0
+timeStamp = datetime.now().time()
+startTime = timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60
 
 #YO TEAM!!!
 #You must ALWAYS type usb.close() after you keyboard interrupt the code to quit
@@ -27,9 +32,12 @@ def csv_writer(data):
 def receiving(usb):
     error = 0;
     usb.timeout = 1
+    global minutes
     global IRVector
     global tVector
     global blinkVector
+    global startTime
+    global tPrintBlink
     #Any derivatives above/below these values are considered part of a blink
     negSlopeThresh = -23000
     posSlopeThresh = 13000
@@ -65,6 +73,7 @@ def receiving(usb):
     csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"])
 
     try:
+        #Eventually Kat wants this in own function
         while True:
             buffer = usb.readline()
 
@@ -93,6 +102,18 @@ def receiving(usb):
 
                 timeD = datetime.now().time()
                 timeDate = datetime.now().date()
+                
+                tDif = abs(minutes - startTime - tPrintBlink)
+                if(tDif < 10**-2):
+                    print ""
+                    print "--------------------------------------------------"
+                    print str(len(subBlink)) + " blinks in the last " + str(round(tWindow,1)) + " minutes"
+                    print "--------------------------------------------------"
+                    print ""
+                    startTime = minutes
+
+                UpdateBlinksInWindow()
+                        
                 if(error == 1):
                     error = 0
                 else:
@@ -155,7 +176,11 @@ def receiving(usb):
                                                     print "Ending deriv is " + str(deriv)
                                                 blinkRange.append([startT, endT])
                                                 blinkVector.extend(IRVector[startIndex:i+1])
-                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                                if(len(blinkRange)>0):
+                                                    AddBlinksInWindow(blinkRange[-1])
+                                                if debug:
+                                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
                                             else:
                                                 blinkVector.extend([0]*(i-startIndex+1))
                                                  
@@ -193,7 +218,11 @@ def receiving(usb):
                                                 print "Ending time is: " + str(endT)
                                             blinkRange.append([startT, endT])
                                             blinkVector.extend(IRVector[startIndex:i+1])
-                                            print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                            if(len(blinkRange)>0):
+                                                    AddBlinksInWindow(blinkRange[-1])
+                                            if debug:
+                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                            print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
                                         else:
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         endT = 0
@@ -254,8 +283,12 @@ def receiving(usb):
                                                 if debug:
                                                     print "Ending time is: " + str(endT)
                                                 blinkRange.append([startT, endT])
-                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                                if debug:
+                                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
                                                 blinkVector.extend(IRVector[startIndex:i+1])
+                                                if(len(blinkRange)>0):
+                                                    AddBlinksInWindow(blinkRange[-1])
                                             else:
                                                 blinkVector.extend([0]*(i-startIndex+1))
                                             trackNeg = False
@@ -294,7 +327,11 @@ def receiving(usb):
                                                 print "Ending time is: " + str(endT)
                                             blinkRange.append([startT, endT])
                                             blinkVector.extend(IRVector[startIndex:i+1])
-                                            print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                            if debug:
+                                                print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                            print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
+                                            if(len(blinkRange)>0):
+                                                    AddBlinksInWindow(blinkRange[-1])
                                         else:
                                             blinkVector.extend([0]*(i-startIndex+1))
                                         trackNeg = False
@@ -338,19 +375,15 @@ def receiving(usb):
                                 peak = 0
                                 valley = 0
                                 blinkVector.append(0)
-
                     data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month),
                             "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
                             (timeD.second + 0.000001*timeD.microsecond) ,IR1]
                     csv_writer(data)
-                    #may not work....
-                    if(len(blinkRange)>0):
-                        BlinksInWindow(0.5,blinkRange[-1])
+    
     
     #change from 0 to blank
     except KeyboardInterrupt:
         usb.close()
-        print blinkRange
         blinkVector.append(0)
         blinkVector = blinkVector[0:len(IRVector)]
         with open(filename, 'rb') as input, open((filename[:-4] + 'Full.csv' ), 'wb') as output:
@@ -361,7 +394,8 @@ def receiving(usb):
             row = next(reader)
             row.insert(4, 'Blink')
             all.append(row)
-            currentBlink = blinkRange[0]
+            if(len(blinkRange)>0):
+                currentBlink = blinkRange[0]
             for k, row in enumerate(reader):
                 if(len(blinkRange)==0):
                     row.insert(4, '')
@@ -389,10 +423,10 @@ def receiving(usb):
             writer.writerows(all)
 
 #tWindow must be in minutes (e.g. 60 minutes instead of 1 hour)
-def BlinksInWindow(tWindow, newBlink):
+def AddBlinksInWindow(newBlink):
+    global tWindow
     global subBlink
-    timeD = datetime.now().time()
-    tEnd = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
+    tEnd = minutes
     tBegin = tEnd - tWindow
 
     if(len(subBlink)==0 or newBlink != subBlink[-1]):
@@ -401,9 +435,18 @@ def BlinksInWindow(tWindow, newBlink):
 
     if(firstBlink[0] < tBegin):
         subBlink = subBlink[1:]
-    print "You have blinked " + str(len(subBlink))+" times in the last "+str(tWindow)+" minutes"
-    return len(subBlink)
-    
+    #return len(subBlink)
+
+def UpdateBlinksInWindow():
+    global tWindow
+    global subBlink
+    tEnd = minutes
+    tBegin = tEnd - tWindow
+    if(len(subBlink) != 0):
+        firstBlink = subBlink[0]
+        if(firstBlink[0] < tBegin):
+            subBlink = subBlink[1:]
+            
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name w/ .csv at the end:  ')
@@ -416,5 +459,8 @@ from the blink vector. It creates a subBlinkVector that is global or saved someh
 It checks each time if the first blink falls outside the window. If so, it removes it from the vector. I'll just send
 to Kat the number of times you've blinked in that window, so the output is just an integer.
 
+
+Maybe have a function to add to the blinkWindow vector, and then at the end of each loop call another function to make sure
+that the vector is up to date, and then print out the number of blinks.
     
 """
