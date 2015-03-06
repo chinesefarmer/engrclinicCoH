@@ -9,8 +9,11 @@ import datetime
 import time
 
 avgSize = 20                    # Moving Average Filter Sample Size
-pauseCheck = 0;                                 # Debug code
-SAMPLE_LENGTH = 500
+pauseCheck = 0                                 # Debug code
+SAMPLE_LENGTH = 1000
+ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
+ACCEPTABLE_YAW_RANGE = 3
+MAX_OP_INCLINE = 0
 
 #The function writes a comma-delimited row of data into the file "filename"
 #When opening the csv file, remember to select the delimiter as commas
@@ -48,7 +51,8 @@ def csv_reader():
             timeTot.append(float(row[12]))
 
         totalOpTime = max(timeTot) - min(timeTot)
-        print totalOpTime/len(timeTot)
+        print "Average Sampling Frequency: "
+        print len(timeTot)/totalOpTime
             
         #Applies the moving average
         smoothRoll = avgFilter(RollTot)
@@ -60,57 +64,86 @@ def csv_reader():
         [pitchAngleList, pitchDist] = timeAtAngle(timeTot,smoothPitch)
         [yawAngleList, yawDist] = timeAtAngle(timeTot,smoothYaw)
 
-        #Calculate time spent looking at operating table
-        percentFocused = detectTable(pitchAngleList, pitchDist, totalOpTime)
-        print "Perecent Time Focused: "
-        print percentFocused * 100
-
         # Integrates the Gyroscope Data
         gyroYaw = calcGyroYaw(timeTot, GyroYTot)
         smoothGyro = avgFilter(gyroYaw)
+        [gyroYawList, gyroYawDist] = timeAtAngle(timeTot,smoothGyro)
+
+        #Calculate time spent looking at operating table(in Pitch angles)
+        [percentFocused, focusAngle] = detectTablePitch(pitchAngleList, pitchDist, totalOpTime)
+        print "Percent Time Focused in Pitch Angles: "
+        print percentFocused * 100
+        print "at Pitch angle of: "
+        print focusAngle
+
+        # Uses Gyro Data to calculate the Yaw angle for percent focusing
+        [percentFocused, focusAngle]= detectTableYaw(gyroYawList, gyroYawDist, totalOpTime)
+        print "Percent Time Focused in Yaw Angles: "
+        print percentFocused * 100
+        print "at Yaw angle of: "
+        print focusAngle
         
         
         #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
-        pl.subplot(421)
-        pl.plot(timeTot,RollTot)
+        pl.subplot(521)
+##        pl.plot(timeTot,RollTot)
         pl.plot(timeTot,smoothRoll)
+        pl.xlabel("Time(s)")
+        pl.ylabel("Degrees)")
         pl.title("Roll")
-        pl.subplot(423)
-        pl.plot(timeTot,PitchTot)
+        pl.subplot(523)
+##        pl.plot(timeTot,PitchTot)
         pl.plot(timeTot,smoothPitch)
+        pl.xlabel("Time(s)")
+        pl.ylabel("Degrees")
         pl.title("Pitch")
-        pl.subplot(425)
-        pl.plot(timeTot,YawTot)
+        pl.subplot(525)
+##        pl.plot(timeTot,YawTot)
         pl.plot(timeTot,smoothYaw)
-        pl.title("Yaw")
+        pl.xlabel("Time(s)")
+        pl.ylabel("Degrees")
+        pl.title("Yaw calculated with Magnetometer")
         
-        pl.subplot(422)
+        pl.subplot(522)
         pl.plot(rollAngleList,rollDist)
         pl.title("Time spent with head at Roll angle")
+        pl.ylabel("Time(s)")
+        pl.xlabel("Degrees of Rotation(Degees)")
 
-        pl.subplot(424)
+        pl.subplot(524)
         pl.plot(pitchAngleList,pitchDist)
         pl.title("Time spent with head at Pitch angle")
+        pl.ylabel("Time(s)")
+        pl.xlabel("Degrees of Rotation(Degees)")
 
-        pl.subplot(426)
+        pl.subplot(526)
         pl.plot(yawAngleList,yawDist)
         pl.title("Time spent with head at Yaw angle")
+        pl.ylabel("Time(s)")
+        pl.xlabel("Degrees of Rotation(Degees)")
 
-
-        pl.subplot(4,2,7)
-        pl.plot(timeTot,gyroYaw)
+        pl.subplot(527)
+##        pl.plot(timeTot,gyroYaw)
         pl.plot(timeTot,smoothGyro)
-        
-        pl.subplot(4,2,8)
+        pl.title("Yaw as calculated by the Gyro")
+        pl.xlabel("Time(s)")
+        pl.ylabel("Degrees")
+
+        pl.subplot(528)
+        pl.plot(gyroYawList,gyroYawDist)
+        pl.title("Time spent with head at Yaw angle")
+        pl.ylabel("Time(s)")
+        pl.xlabel("Degrees of Rotation(Degees)")
+
+        pl.subplot(529)
         pl.plot(timeTot,GyroYTot)
-        
+        pl.title("Anglular velocity from the Gyro")
+        pl.xlabel("Time(s)")
+        pl.ylabel("Angular Velocity(Deg/s)")
+
+        pl.subplots_adjust(hspace=0.69)
         pl.show()
-
-
-
-
-
 
 
 #Applies a moving average filter
@@ -144,45 +177,72 @@ def timeAtAngle(time,angle):
     return [angleList , angleTimes]
 
 # Calculates the approximate orientation that the head needs to be oriented in order to be facing the
-# operating field and calculates the percentage of time the head is facing that way
+# operating field and calculates the percentage of time the head is facing that way (for the pitch orientation)
 # Assumption: The head needs to be facing downwards to see the operating table
-# Warning: This is a highly rudimentary algorithm. Only uses the Pitch to calculate
+# Warning: This is a highly rudimentary algorithm.
 # the operating table
-def detectTable(angles, angleDist, totalTime):
-    maxIncline = 0                  #Max Possible Pitch angle and still be facing the table
-    acceptableRange = 5             #The range about the angle that still counts as facing the table
+# acceptableRange is the range about the angle that still counts as facing the table
+
+# Finds operating angle by finding  the angle that takes the max time
+def detectTablePitch(angles, angleDist, totalTime):
+    global ACCEPTABLE_PITCH_RANGE
+    global MAX_OP_INCLINE           
     minAngle = min(angles)
+    indexMin = 0
     maxAngle = max(angles)
+    indexMax = len(angles)-1
 
-
-    if(angles.count(0) != 0):
-        locZero = angles.index(0)
+    if(angles.count(MAX_OP_INCLINE) != 0):
+        locZero = angles.index(MAX_OP_INCLINE)
         operateAngle = np.argmax(angleDist[0:locZero])
 
         timeTarget = 0              # Time facing the target operating field
-        for i in range(2*acceptableRange):
+        for i in range(2*ACCEPTABLE_PITCH_RANGE):
+            iterAngle = operateAngle + i - ACCEPTABLE_PITCH_RANGE
             # Ensures that the angle lies within the array
-            if(operateAngle + i - acceptableRange < minAngle or operateAngle + i - acceptableRange > maxAngle):
+            if(iterAngle < indexMin or iterAngle > indexMax):
                 continue
             else:
                 # Accumulate all time values within the acceptable range about the calculated center
                 # of operating table
-                timeTarget += angleDist[angles[angles.index(operateAngle + i - acceptableRange)]]
+                timeTarget += angleDist[angles[iterAngle]-minAngle]
                 
-        return timeTarget/totalTime
-        
+        return [timeTarget/totalTime, operateAngle+minAngle]
     else:
-        return 0
+        return [0, 0]
+
+# Finds operating angle by finding  the angle that takes the max time
+def detectTableYaw(angles, angleDist, totalTime):
+    global ACCEPTABLE_YAW_RANGE
+    
+    minAngle = min(angles)
+    indexMin = 0
+    maxAngle = max(angles)
+    indexMax = len(angles)-1
+    operateAngle = np.argmax(angleDist)
+
+    timeTarget = 0              # Time facing the target operating field
+    for i in range(2*ACCEPTABLE_YAW_RANGE):
+        iterAngle = operateAngle + i - ACCEPTABLE_YAW_RANGE
+        # Ensures that the angle lies within the array
+        if(iterAngle < indexMin or iterAngle > indexMax):
+            continue
+        else:
+            # Accumulate all time values within the acceptable range about the calculated center
+            # of operating table
+            timeTarget += angleDist[angles[iterAngle]-minAngle]
+            
+    return [timeTarget/totalTime, operateAngle+minAngle]
+    
 
 def calcGyroYaw(timeTot, gyro):
     yawAngle = [0]
     yawAngle.append(0)
-    print gyroDriftY
-    print len(timeTot)
-    print len(gyro)
+##    print gyroDriftY
+##    print len(timeTot)
+##    print len(gyro)
     for i in range(1,len(gyro)-1):
-        print (timeTot[i]-timeTot[i-1])
-        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
+       yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
 
     return yawAngle
 
