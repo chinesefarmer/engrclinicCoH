@@ -8,9 +8,9 @@ import pylab as pl
 import datetime
 import time
 
-avgSize = 20                    # Moving Average Filter Sample Size
+avgSize = 30                    # Moving Average Filter Sample Size
 pauseCheck = 0                                 # Debug code
-SAMPLE_LENGTH = 1000
+SAMPLE_LENGTH = 2000
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
 ACCEPTABLE_YAW_RANGE = 3
 MAX_OP_INCLINE = 0
@@ -420,7 +420,7 @@ def receiving(port, baudRate):
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name:  ')+ ".csv"
-    arduinoData = receiving('COM4',57600)
+    arduinoData = receiving('COM3',57600)
 
 
 
