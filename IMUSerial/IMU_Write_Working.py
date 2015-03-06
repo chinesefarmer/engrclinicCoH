@@ -420,7 +420,7 @@ def receiving(port, baudRate):
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name:  ')+ ".csv"
-    arduinoData = receiving('COM3',57600)
+    arduinoData = receiving('COM4',57600)
 
 
 
