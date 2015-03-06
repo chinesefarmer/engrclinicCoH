@@ -220,5 +220,4 @@ def buildGUI():
 	app.MainLoop()
 
 if __name__ == '__main__':
-	#runCamera()
 	buildGUI()
