@@ -83,14 +83,14 @@ def csv_reader():
         print "at Yaw angle of: "
         print focusAngle
         
-        
+        pl.rcParams.update({'font.size': 18})
         #Plots the RPY data in a 3x1 figure with titles
         pl.figure(1)
         pl.subplot(421)
 ##        pl.plot(timeTot,RollTot)
         pl.plot(timeTot,smoothRoll)
         pl.xlabel("Time(s)")
-        pl.ylabel("Degrees)")
+        pl.ylabel("Degrees")
         pl.title("Roll")
         
         pl.subplot(423)
@@ -128,7 +128,7 @@ def csv_reader():
         pl.subplot(425)
 ##        pl.plot(timeTot,gyroYaw)
         pl.plot(timeTot,smoothGyro)
-        pl.title("Yaw as calculated by the Gyro")
+        pl.title("Yaw")
         pl.xlabel("Time(s)")
         pl.ylabel("Degrees")
 
