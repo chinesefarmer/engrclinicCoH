@@ -3,10 +3,9 @@ from serial import *
 from datetime import *
 import time
 import pylab as pl
-from KeyPress import *
-#Check different base lines for smoothing algorithms?
+#from KeyPress import *
 
-CheckKeyPress = True
+CheckKeyPress = False
 IRVector = []
 tVector = []
 derivVector = []
@@ -57,6 +56,9 @@ def csv_writer(data):
         writer.writerow(data)
 
 
+'''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
+It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
+I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
 #Set port and baudRate when calling this function
 def initSerialConnection(usb):
     usb.timeout = 1
@@ -70,35 +72,46 @@ def initSerialConnection(usb):
     buffer = ''
     csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"])
 
-def getSerial(usb):
-    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
-    global negSlopeThresh, posSlopeThresh, error
-    global derivVector, n, trackPos, trackNeg, startIR, startIndex, endIndex, startT
-    global endT, endIR, peak, valley, blinkRange, negB, posB, positive, negative, runningAvg
-
+'''BEN: This is the code that read my data from the serial connection, just for your reference. I recommend using
+portions of it since the blink sensor every once and sends a bogus value, and this function prevents the code from
+crashing'''
+def oldGetSerialCode(usb):
     buffer = usb.readline()
 
         
     if '\n' in buffer:
         lines = buffer.split('\n')
         IR1 = lines[-2]
+        '''BEN: You only have to worry about the \r for the last variable in the serial stream from the arduino,
+        so don't worry about the IR1.split('\r') if the IR data isn't the last in the vector sent to python'''
         if '\r' in IR1:
+            '''BEN: Always set the IR value to the variable IR1 Bogus'''
             IR1Bogus = IR1.split('\r')
             if len(IR1Bogus) > 12:
                 print "Error"
             else:
+                '''BEN: This try except you definitely want to keep. It takes the IR1Bogus variable from above
+                and checks if it's a valid number or not so the code doesn't crash'''
                 try:
                     IR1 = float(IR1Bogus[0])
                 except ValueError:
                     error = 1
                     print "Value Error"
-                    
+                           
         else:
             try:
                 IR1 = float(IR1)
             except ValueError:
                 error = 1
                 print "Value Error"
+
+'''BEN: Make sure to call this function and input the newest IR1 value from the serial data. This runs the algorithm''' 
+def Algorithm(IR1):
+    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
+    global negSlopeThresh, posSlopeThresh, error
+    global derivVector, n, trackPos, trackNeg, startIR, startIndex, endIndex, startT
+    global endT, endIR, peak, valley, blinkRange, negB, posB, positive, negative, runningAvg
+
                  
 
         timeD = datetime.now().time()
@@ -382,7 +395,8 @@ def getSerial(usb):
             csv_writer(data)
 
 
-    #change from 0 to blank
+'''BEN: This is the code that saves my data to the csv file when you force quit the application, make sure to call this
+at some point'''
 def saveFile(usb):
     global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
     global negSlopeThresh, posSlopeThresh, error
@@ -446,85 +460,7 @@ def saveFile(usb):
 
         writer.writerows(all)
 
-#tWindow must be in minutes (e.g. 60 minutes instead of 1 hour)
-def AddBlinksInWindow(newBlink):
-    global tWindow
-    global subBlink
-    tEnd = minutes
-    tBegin = tEnd - tWindow
 
-    if(len(subBlink)==0 or newBlink != subBlink[-1]):
-       subBlink.append(newBlink)
-    firstBlink = subBlink[0]
-
-    if(firstBlink[0] < tBegin):
-        subBlink = subBlink[1:]
-    #return len(subBlink)
-
-def UpdateBlinksInWindow():
-    global tWindow
-    global subBlink
-    tEnd = minutes
-    tBegin = tEnd - tWindow
-    if(len(subBlink) != 0):
-        firstBlink = subBlink[0]
-        if(firstBlink[0] < tBegin):
-            subBlink = subBlink[1:]
-
-#Reads the comma-delimited csv file and writes it to lists.
-#Then plots the lists.
-def csv_reader(filename):
-    with open(filename, 'r') as csv_file:
-        reader = csv.reader(csv_file, delimiter = ',')
-
-        Time = [];
-        RawIR = [];
-        Blinks = [];
-        ActualBlinks = [];
-
-
-        # Skips the first line which does not contain data
-        next(reader)
-
-            #csv file
-        for row in reader:
-            #print row
-            Time.append(float(row[2]))
-            RawIR.append(float(row[3]))
-            Blinks.append(float(row[4]))
-            ActualBlinks.append(float(row[5]))
-            
-
-        totalOpTime = max(Time) - min(Time)
-        print "Average Sampling Frequency: "
-        print len(Time)/totalOpTime
-            
-        
-        pl.rcParams.update({'font.size': 18})
-        #Plots the RPY data in a 3x1 figure with titles
-        pl.figure(1)
-        pl.xlabel("Time(s)")
-        pl.ylabel("IR Values")
-        pl.title("IR Blink Sensor Results")
-        pl.plot(Time, RawIR, linewidth = 2, color = 'gray')
-        pl.autoscale()
-        pl.plot(Time, Blinks, linewidth = 2, color = 'red')
-        pl.plot(Time, ActualBlinks, linewidth = 2, color = 'blue')
-        
-        pl.show()
-
-
-"""
-I want to be taking the blink vector andwrite a function that Kat can use, that takes as input a time window, and the most recent blink value
-from the blink vector. It creates a subBlinkVector that is global or saved somehow, and tacks on blinks until.
-It checks each time if the first blink falls outside the window. If so, it removes it from the vector. I'll just send
-to Kat the number of times you've blinked in that window, so the output is just an integer.
-
-
-Maybe have a function to add to the blinkWindow vector, and then at the end of each loop call another function to make sure
-that the vector is up to date, and then print out the number of blinks.
-    
-"""
 
 
 
@@ -534,6 +470,8 @@ if __name__=='__main__':
     outputFile = (filename[:-4] + 'Full.csv' )
     usb = Serial('/dev/cu.usbmodem621',57600)
     initSerialConnection(usb)
+    '''BEN: This is the loop I'm using right now to keep getting serial data and then save it to a usb when the user
+hits ctrl-c (or keyboard interrupts the shell)'''
     while True:
         try:
             getSerial(usb)
