@@ -1,6 +1,7 @@
 import cmd
 import subprocess
 import shlex
+import time
 import wx
 import IMU_Write_Working
 
@@ -132,7 +133,7 @@ class CameraPanel(wx.Panel):
 
 		self.SetSizerAndFit(Sizer)
 	def onStart(self, event=None):
-		runCamera(False)
+		runCamera(True)
 
 	def DoNothing(self, event=None):
 		"""Do nothing."""
@@ -199,16 +200,20 @@ class MainFrame(wx.Frame):
 ################################################################################
 def runCamera(saving=True):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
-	save='--sout= \"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
 	if saving:
 	 save = save
 	else:
 		save = ''
 	command_line = stream + save
-	#print command_line
+	print command_line
 	args = shlex.split(command_line)
 	print args
 	p = subprocess.Popen(args)
+	time.sleep(3)
+	args = 'stop'
+	args = shlex.split(args)
+	p.communicate(args)
 	return 1
 ################################################################################
 def buildGUI():
