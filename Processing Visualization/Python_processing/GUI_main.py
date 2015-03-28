@@ -125,7 +125,7 @@ class CameraPanel(wx.Panel):
 		CameraStartBtn.Bind(wx.EVT_BUTTON, self.onStart )
 
 		CameraStopBtn = wx.Button(self, label="Stop Stream")
-		CameraStopBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
+		CameraStopBtn.Bind(wx.EVT_BUTTON, self.closeCamera )
 
 		Sizer = wx.BoxSizer(wx.VERTICAL)
 		Sizer.Add(CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -135,9 +135,9 @@ class CameraPanel(wx.Panel):
 	def onStart(self, event=None):
 		runCamera(True)
 
-	def DoNothing(self, event=None):
-		"""Do nothing."""
-		pass
+	def closeCamera(self, event=None):
+		closeCamera()
+		
 
 	def OnMsgBtn(self, event=None):
 		"""Bring up a wx.MessageDialog with a useless message."""
@@ -206,15 +206,18 @@ def runCamera(saving=True):
 	else:
 		save = ''
 	command_line = stream + save
-	print command_line
+	#print command_line
 	args = shlex.split(command_line)
-	print args
+	#print args
 	p = subprocess.Popen(args)
-	time.sleep(3)
-	args = 'stop'
-	args = shlex.split(args)
-	p.communicate(args)
+	time.sleep(1)
 	return 1
+
+def closeCamera():
+        args = shlex.split('ivanbatch.bat')
+        l = subprocess.call(args)
+        time.sleep(1)
+        return 1
 ################################################################################
 def buildGUI():
 	app = wx.App(False)
