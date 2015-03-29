@@ -216,9 +216,9 @@ class BlinkPanel(wx.Panel):
 		MsgBtn = wx.Button(self, label="Show Live Plot")
 		MsgBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
 
-		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(StopBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
-		sizer.Add(MsgBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
+		sizerH = wx.BoxSizer(wx.VERTICAL)
+		sizerH.Add(StopBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
+		sizerH.Add(MsgBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
 
 		sizer2 = wx.BoxSizer(wx.VERTICAL)
 		self.SetSizerAndFit(Sizer)
