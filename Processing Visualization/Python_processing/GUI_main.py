@@ -1,6 +1,7 @@
 import cmd
 import subprocess
 import shlex
+import time
 import wx
 import time
 #Import IMU module
@@ -126,19 +127,22 @@ class CameraPanel(wx.Panel):
 		CameraStopBtn = wx.Button(self, label="Stop Stream")
 		CameraStopBtn.Bind(wx.EVT_BUTTON, self.stopCamera)
 
+
 		Sizer = wx.BoxSizer(wx.VERTICAL)
 		Sizer.Add(CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
 		Sizer.Add(CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
 
 		self.SetSizerAndFit(Sizer)
 	def onStart(self, event=None):
-		runCamera(False)
-	def stopCamera(self, event = None):
-		quitCamera()
+		runCamera(True)
 
-	def DoNothing(self, event=None):
-		"""Do nothing."""
-		pass
+    def stopCamera(self, event = None):
+        quitCamera()
+
+
+	def closeCamera(self, event=None):
+		closeCamera()
+		
 
 	def OnMsgBtn(self, event=None):
 		"""Bring up a wx.MessageDialog with a useless message."""
@@ -489,7 +493,11 @@ class GraphPanel(wx.Frame):
 # vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\jyang\\Desktop\\designReview-2.mp4}'}"
 def runCamera(saving=False):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
-	save=' --sout= \"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+
+	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+
+	#save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+
 	if saving:
 	 save = save
 	else:
@@ -497,22 +505,16 @@ def runCamera(saving=False):
 	command_line = stream + save
 	#print command_line
 	args = shlex.split(command_line)
-	print "entering: ", args
+	#print args
 	p = subprocess.Popen(args)
-	# stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-	"""
-	time.sleep(10)
-
-	msg = "stop"
-	#args = shlex.split(msg)
-	p.stdin.write(msg)
-	"""
+	time.sleep(1)
 	return 1
 
-def quitCamera():
-	msg = "vlc.exe -I rc stop"
-	args = shlex.split(msg)
-	p = subprocess.Popen(args)
+def closeCamera():
+        args = shlex.split('ivanbatch.bat')
+        l = subprocess.call(args)
+        time.sleep(1)
+        return 1
 
 ################################################################################
 def buildGUI():

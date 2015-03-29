@@ -1,4 +1,20 @@
 vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 
 
 
-vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\jyang\\Desktop\\testRec.mp4}'}"
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\ClinicCoH\\Desktop\\testRec.mp4}'}"
+
+
+
+
+
+1080p version:
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1920x1080 :dshow-aspect-ratio=16\:9 :dshow-fps=24 
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1920x1080:dshow-aspect-ratio=16\:9 :dshow-fps=24 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1920x1080}:std{access=file,mux=mp4,dst=C:\\Users\\ClinicCoH\\Desktop\\testRec.mp4}'}"
+
+to end:
+STOP (STAHHHP)
+
+Ivan's test 
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=1000 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=24,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\ClinicCoH\\Desktop\\testRec.mp4}'}" 
+
+vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"

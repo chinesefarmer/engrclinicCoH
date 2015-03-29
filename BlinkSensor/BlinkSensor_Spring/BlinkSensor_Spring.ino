@@ -107,7 +107,8 @@ void loop(){
   while (i < samples){ 
     pulse.fetchLedData();
    //Adding up current values over 4 samples
-    IR1 += pulse.ps2;
+    //IR1 += pulse.ps2;
+    IR1 += pulse.ps1;
     i++;  
     }
       
