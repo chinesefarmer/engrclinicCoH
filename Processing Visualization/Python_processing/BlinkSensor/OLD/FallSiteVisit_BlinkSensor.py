@@ -16,10 +16,6 @@ to manual 0 to always see the whole data from the beginning.
 
 Note: press Enter in the 'manual' text box to make a new value 
 affect the plot.
-
-Eli Bendersky (eliben@gmail.com)
-License: this code is in the public domain
-Last modified: 31.07.2008
 """
 #We want Refresh_Interval_Ms to be the smallest possible, which is 1 millisecond
 #At this rate we take samples every 0.12 seconds
