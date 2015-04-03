@@ -7,14 +7,14 @@ import pylab as pl
 from KeyPress import *
 import numpy as np
 #Check different base lines for smoothing algorithms?
-
+#Yo! You're saving a duplicate of your data in your Full.csv file. Look into this...
 CheckKeyPress = True
 IRVector = []
 tVector = []
 derivVector = []
 blinkVector = []
 subBlink = []
-debug = True
+debug = False
 tWindow = 1.0/3
 tPrintBlink = 1.0/6
 minutes = 0
@@ -37,7 +37,7 @@ blinkRange = []
 negB = False
 posB = False
 positive = 0
-PeakBlinkHeight = 600
+PeakBlinkHeight = 500
 ValleyBlinkHeight = 1000
 negative = 0
 #To keep track of how many IR values fall are above the positive threshold.
@@ -48,7 +48,7 @@ negBlinkPoints = 0
 error = 0;
 
 #Any derivatives above/below these values are considered part of a blink
-negSlopeThresh = -13000
+negSlopeThresh = -6000
 posSlopeThresh = 13000
 
 #YO TEAM!!!
@@ -149,7 +149,8 @@ def getSerial(usb):
                         #less than the positive threshold and greater than the negative one,
                         #that likely means we're at the end of the blink
                         if(deriv > negSlopeThresh):
-                            print "Nearing end of peak at "+str(timeD.second + 0.000001*timeD.microsecond)+" sec w/ deriv "+str(deriv)
+                            if debug:
+                                print "Nearing end of peak at "+str(tVector[i])+" sec w/ deriv "+ str(deriv)
                             negative = negative + 1
                             if(negative > n):
                                 endT = tVector[i-2]
@@ -159,10 +160,8 @@ def getSerial(usb):
                                     blinkVector.extend([0]*(i-startIndex+1))
                                     if debug:
                                         print "Bad"
-                                #####These parameters of 1000 might need to change...
-                                #####This is what's preventing us from finding smaller peaks
                                 elif((peak-endIR) > PeakBlinkHeight and (peak-startIR) > PeakBlinkHeight):
-                                    if(posBlinkPoints >= n):
+                                    if(posBlinkPoints >= n-1):
                                         blinkRange.append([startT, endT])
                                         blinkVector.extend(IRVector[startIndex:i+1])
                                         ##if(len(blinkRange)>0):
@@ -172,14 +171,16 @@ def getSerial(usb):
                                         print "Length of blink: " + str(round((endT-startT),3)) + " sec"
                                     else:
                                         blinkVector.extend([0]*(i-startIndex+1))
-                                        print "Blink ignored since not enough points in the positive slope. Time stamp: "+  str(timeD.second + 0.000001*timeD.microsecond)
+                                        if debug:
+                                            print "Blink ignored since only "+str(posBlinkPoints)+" points in the positive slope. Time stamp: "+  str(tVector[i])
 
                                 #It's not a blink unless the height is large enough, set by the BlinkHeight
                                 #variable
                                 else:
                                     blinkVector.extend([0]*(i-startIndex+1))
-                                    print "Peak ignored at " + str(timeD.second + 0.000001*timeD.microsecond) + " sec, height not large enough"
-                                     
+                                    if debug:
+                                        print "Peak ignored at " + str(tVector[i]) + " sec, height not large enough"
+                                                                      
                                 endT = 0
                                 endIndex = 0
                                 endIR = 0
@@ -197,11 +198,13 @@ def getSerial(usb):
                             else:
                                 negB = True
                         else:
-                            print "Switching from tracking pos to neg slope at " +str(timeD.second + 0.000001*timeD.microsecond) +" sec"
+                            if debug:
+                                print "Switching from tracking pos to neg slope at " +str(tVector[i]) +" sec"
                             negB = True
                             
                     elif(negB):
-                        print "Inside elif(negB) the deriv is "+str(deriv)+" and positive = "+str(positive)
+                        if debug:
+                            print "Inside elif(negB) the deriv is "+str(deriv)+" and positive = "+str(positive)
                         if(positive == 0):
                             positive = 1
                         elif(positive == 1):
@@ -213,7 +216,7 @@ def getSerial(usb):
                             if(endIR == peak):
                                 blinkVector.extend([0]*(i-startIndex+1))
                             elif((peak-endIR) > PeakBlinkHeight and (peak-startIR) > PeakBlinkHeight):
-                                if(posBlinkPoints >= n):
+                                if(posBlinkPoints >= n-1):
                                     if debug:
                                         print "Ending time is: " + str(endT)
                                     blinkRange.append([startT, endT])
@@ -225,127 +228,28 @@ def getSerial(usb):
                                     print "Length of blink: " + str(round((endT-startT),2)) + " sec"
                                 else:
                                     blinkVector.extend([0]*(i-startIndex+1))
-                                    print "Blink ignored since not enough points in the positive slope. Time stamp: "+  str(timeD.second + 0.000001*timeD.microsecond)
+                                    if debug:
+                                        print "Blink ignored since only "+str(posBlinkPoints)+" points in the positive slope. Time stamp: "+  str(tVector[i])
                             else:
                                 blinkVector.extend([0]*(i-startIndex+1))
-                                print "Peak ignored at " + str(timeD.second + 0.000001*timeD.microsecond) + " sec, height not large enough"
+                                if debug:
+                                    print "Peak ignored at " + str(tVector[i]) + " sec, height not large enough, inside elif(negB)"
+
                             endT = 0
                             endIndex = 0
                             endIR = 0
                             trackPos = False
                             runningAvg = 0
                             startT = 0
+                            negative = 0
                             peak = 0
                             posBlinkPoints = 0
                             #Clearing out the vector a little
                             derivVector = derivVector[i-(n-1):i+1]
                             negB = False
                             positive = 0
-                            negative = 0
                     else:
                         posBlinkPoints = posBlinkPoints + 1
-                        
-                elif(trackNeg):
-                    #If the IRVal is greater than the previous peak, this is now
-                    #considered the peak
-                    if(IRVector[i-1] < valley):
-                        valley = IRVector[i-1]
-                    #We're coming up from the valley
-                    if(deriv > 0):
-                        #If the derivative is less than the positive threshold, that means
-                        #we've likely flattened out
-                        if(deriv < posSlopeThresh):
-                            print "Nearing end of valley at "+str(timeD.second + 0.000001*timeD.microsecond)+" sec"
-                            positive = positive + 1
-                            #If there's been a positive slope for n times, the blink is over
-                            if(positive > n):
-                                endT = tVector[i-2]
-                                endIndex = i-2
-                                endIR = IRVector[i-2]
-                                if(endIR == valley):
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                elif((endIR - valley) > ValleyBlinkHeight and (startIR - valley) > ValleyBlinkHeight):
-                                    if(negBlinkPoints >= n):
-                                        if debug:
-                                            print "Ending time is: " + str(endT)
-                                        blinkRange.append([startT, endT])
-                                        if debug:
-                                            print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
-                                        print "Length of blink: " + str(round((endT-startT),2)) + " sec"
-                                        blinkVector.extend(IRVector[startIndex:i+1])
-                                        ##if(len(blinkRange)>0):
-                                            ##AddBlinksInWindow(blinkRange[-1])
-                                    else:
-                                        blinkVector.extend([0]*(i-startIndex+1))
-                                        print "Blink ignored since not enough points in the negative slope. Time stamp: "+  str(timeD.second + 0.000001*timeD.microsecond)
-                                else:
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                    print "Valley ignored at " + str(timeD.second + 0.000001*timeD.microsecond) + " sec, height not large enough"
-                                trackNeg = False
-                                runningAvg = 0
-                                startT = 0
-                                endT = 0
-                                endIndex = 0
-                                endIR = 0
-                                valley = 0
-                                negBlinkPoints = 0
-                                positive = 0
-                                #Clearing out the vector a little
-                                derivVector = derivVector[i-(n-1):i+1]
-                                posB = False
-                                negative = 0
-                            #Otherwise note that we have a positive slope right now
-                            else:
-                                posB = True
-                        else:
-                            posB = True
-                    #If the slope is negative after we've been coming out of the valley, that
-                    #means the blink is over. posB just means that previoulsy there was a trend of a positive
-                    #slope, so if for some reason the slope is negative again, that means the blink is over.
-                    elif(posB):
-                        #Just in case I'll wait one round to be sure
-                        if(negative == 0):
-                            negative = 1
-                        elif(negative == 1):
-                            negative = 2
-                        else:
-                            endT = tVector[i-2]
-                            endIndex = i-2
-                            endIR = IRVector[i-2]
-                            if(endIR == valley):
-                                blinkVector.extend([0]*(i-startIndex+1))
-                            elif((endIR - valley) > ValleyBlinkHeight and (startIR - valley) > ValleyBlinkHeight):
-                                if(negBlinkPoints >= n):
-                                    if debug:
-                                        print "Ending time is: " + str(endT)
-                                    blinkRange.append([startT, endT])
-                                    blinkVector.extend(IRVector[startIndex:i+1])
-                                    if debug:
-                                        print "Blink from : " + str(startT) + " sec to "+str(endT)+" sec"
-                                    print "Length of blink: " + str(round((endT-startT),2)) + " sec"
-                                    ##if(len(blinkRange)>0):
-                                            ##AddBlinksInWindow(blinkRange[-1])
-                                else:
-                                     blinkVector.extend([0]*(i-startIndex+1))
-                                     print "Blink ignored since not enough points in the negative slope. Time stamp: "+  str(timeD.second + 0.000001*timeD.microsecond)
-                            else:
-                                blinkVector.extend([0]*(i-startIndex+1))
-                                print "Valley ignored at " + str(timeD.second + 0.000001*timeD.microsecond) + " sec, height not large enough"
-                            trackNeg = False
-                            runningAvg = 0
-                            startT = 0
-                            valley = 0
-                            endT = 0
-                            negBlinkPoints = 0
-                            endIndex = 0
-                            endIR = 0
-                            #Clearing out the vector a little
-                            derivVector = derivVector[i-(n-1):i+1]
-                            posB = False
-                            positive = 0
-                            negative = 0
-                    else:
-                        negBlinkPoints = negBlinkPoints + 1
 
                 #This runs the first time through since we haven't checked the
                 #slopes yet
@@ -354,7 +258,7 @@ def getSerial(usb):
                     if(deriv >= posSlopeThresh):
                         #start tracking the slope!
                         if debug:
-                            print "Looking for peak at time: " + str(timeD.second + 0.000001*timeD.microsecond) + "after deriv: " + str(deriv)
+                            print "Looking for peak at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
                         trackPos = True
                         startT = tVector[i-1]
                         startIndex = i-1
@@ -363,7 +267,7 @@ def getSerial(usb):
                     #May be dealing with a valley
                     elif(deriv <= negSlopeThresh):
                         if debug:
-                            print "Looking for valley at time: " + str(timeD.second + 0.000001*timeD.microsecond) + "after deriv: " + str(deriv)
+                            print "Looking for valley at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
                         trackNeg = True
                         startT = tVector[i-1]
                         startIR = IRVector[i-1]
@@ -376,8 +280,7 @@ def getSerial(usb):
                         peak = 0
                         valley = 0
                         blinkVector.append(0)
-            else:
-                print IR1
+
             data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month),
                     "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
                     (timeD.second + 0.000001*timeD.microsecond) ,IR1]
@@ -386,7 +289,7 @@ def getSerial(usb):
 
     #change from 0 to blank
 def saveFile(usb):
-    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
+    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink, CheckKeyPress
     global negSlopeThresh, posSlopeThresh, error
     global derivVector, n, trackPos, trackNeg, startIR, startIndex, endIndex, startT
     global endT, endIR, peak, valley, blinkRange, negB, posB, positive, negative, runningAvg
@@ -394,8 +297,10 @@ def saveFile(usb):
     print blinkRange
     keyPressVector = []
     if CheckKeyPress:
+        print "Entering Check Key Press"
         keyPressVectorNp = np.load('KeyPress.npy')
         keyPressVector = keyPressVectorNp.tolist()
+        print keyPressVector
         
     usb.close()
     blinkVector.append(0)
@@ -439,7 +344,9 @@ def saveFile(usb):
                 row.insert(5, 0)
                 all.append(row)
             else:
-                if(math.ceil(tVector[k]*1000)/1000 == math.ceil(currentKeyPress*1000)/1000):
+                roundedTime = math.floor(tVector[k]*100)/100
+                roundedKeyPress = math.floor(currentKeyPress*100)/100
+                if(roundedTime >= roundedKeyPress - 0.1 and roundedTime <= roundedKeyPress + 0.1):
                     row.insert(5, IRVector[k])
                     all.append(row)
                     keyPressVector = keyPressVector[1:]
