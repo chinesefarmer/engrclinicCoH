@@ -5,15 +5,63 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 
-import datetime
-import time
+#import datetime
+#import time
 
+from datetime import *
+
+#----------Global Variables for the IMU--------------------------------
 avgSize = 30                    # Moving Average Filter Sample Size
 pauseCheck = 0                                 # Debug code
 SAMPLE_LENGTH = 2000
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
 ACCEPTABLE_YAW_RANGE = 3
 MAX_OP_INCLINE = 0
+#---------------------------------------------------------------------
+
+#--------Global Variables for the Blink Sensor--------------------------
+CheckKeyPress = False
+IRVector = []
+tVector = []
+derivVector = []
+blinkVector = []
+subBlink = []
+debug = False
+tWindow = 1.0/3
+tPrintBlink = 1.0/6
+minutes = 0
+timeStamp = datetime.now().time()
+startTime = timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60
+
+#Length of running average
+n=4
+trackPos = False
+trackNeg = False
+startIR = 0
+startIndex = 0
+endIndex = 0
+startT = 0
+endT = 0
+endIR = 0
+peak = 0
+valley = 0
+blinkRange = []
+negB = False
+posB = False
+positive = 0
+negative = 0
+#Running average of derivatives
+runningAvg = 0
+error = 0;
+
+#Any derivatives above/below these values are considered part of a blink
+negSlopeThresh = -23000
+posSlopeThresh = 13000
+#---------------------------------------------------------------------
+
+#YO TEAM!!!
+#You must ALWAYS type usb.close() after you keyboard interrupt the code to quit
+#otherwise you'll be forced to unplug and replug the sensor
 
 #The function writes a comma-delimited row of data into the file "filename"
 #When opening the csv file, remember to select the delimiter as commas
@@ -269,7 +317,6 @@ def receiving(port, baudRate):
     # Writes the first line of csv file
     csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"])
     global startTime
-    startTime = time.clock()        # Records Starting time
     
     while True:
 
@@ -378,8 +425,10 @@ def receiving(port, baudRate):
                     roll = nextR*180/pi
                     pitch = -1*nextP*180/pi
                     yaw = abs(nextY*180/pi)
-                
-                currTime = time.clock() - startTime  # Time elapsed from start
+
+                timeStamp = datetime.now().time()
+                #Time elapsed from start
+                currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
                 #Saves the IMU data to a csv file
                 data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
                 csv_writer(data)
@@ -422,7 +471,7 @@ def receiving(port, baudRate):
 
 if __name__=='__main__':
     filename = raw_input('Enter a file name:  ')+ ".csv"
-    arduinoData = receiving('COM3',57600)
+    arduinoData = receiving('COM6',57600)
 
 
 
