@@ -13,7 +13,7 @@ from datetime import *
 #----------Global Variables for the IMU--------------------------------
 avgSize = 30                    # Moving Average Filter Sample Size
 pauseCheck = 0                                 # Debug code
-SAMPLE_LENGTH = 2000
+SAMPLE_LENGTH = 2500
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
 ACCEPTABLE_YAW_RANGE = 3
 MAX_OP_INCLINE = 0
@@ -57,7 +57,10 @@ error = 0;
 #Any derivatives above/below these values are considered part of a blink
 negSlopeThresh = -23000
 posSlopeThresh = 13000
-#---------------------------------------------------------------------
+
+
+
+#------------------------Functions-------------------------------
 
 #YO TEAM!!!
 #You must ALWAYS type usb.close() after you keyboard interrupt the code to quit
@@ -66,15 +69,15 @@ posSlopeThresh = 13000
 #The function writes a comma-delimited row of data into the file "filename"
 #When opening the csv file, remember to select the delimiter as commas
 #(open office is stupid and won't put the data in separate columns otherwise)
-def csv_writer(data):
-    with open(filename, 'a') as csv_file:
+def csv_writer(data,nameOfFile):
+    with open(nameOfFile, 'a') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(data)
         
 #Reads the comma-delimited csv file and writes it to lists.
 #Then plots the lists.
-def csv_reader():
-    with open(filename, 'r') as csv_file:
+def csv_reader(nameOfFile):
+    with open(nameOfFile, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter = ',')
 
         GyroYTot = [];
@@ -315,7 +318,7 @@ def receiving(port, baudRate):
     buffer = ''
     error = 0
     # Writes the first line of csv file
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time(s)"])
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
     global startTime
     
     while True:
@@ -431,14 +434,14 @@ def receiving(port, baudRate):
                 currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
                 #Saves the IMU data to a csv file
                 data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-                csv_writer(data)
+                csv_writer(data,filenameIMU)
 
                 # Stops program after a number of samples have been collected
                 # Should be replaced with interrupt by GUI
                 global SAMPLE_LENGTH
                 if(n >= SAMPLE_LENGTH):
                     # Plots the RPY data
-                    csv_reader()
+                    csv_reader(filenameIMU)
                     break
 
 
@@ -468,10 +471,51 @@ def receiving(port, baudRate):
 
             #buffer = lines[-1]
                 
+#------------------------Blink Sensor Functions--------------------------
+'''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
+It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
+I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
+#Set port and baudRate when calling this function
+def initSerialConnection(usb,nameOfFile):
+    usb.timeout = 1
+    
+    #This hopefully resets the Arduino
+    usb.setDTR(False)
+    time.sleep(1)
+    usb.flushInput()
+    usb.setDTR(True)
+    
+    buffer = ''
+    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],nameOfFile)
+
+
+
+
+
+#------------------------Main Function-----------------------------------
+
 
 if __name__=='__main__':
+
+    #Writes the raw data for the blink sensor
     filename = raw_input('Enter a file name:  ')+ ".csv"
-    arduinoData = receiving('COM6',57600)
+    #Writes the raw data for the IMU
+    filenameIMU = (filename[:-4] + 'IMU.csv' )
+    #Reads the data to process for the blink sensor
+    outputFile = (filename[:-4] + 'Full.csv' )
+
+    usb = receiving('COM6',57600)
+    initSerialConnection(usb,outputFile)
+    '''BEN: This is the loop I'm using right now to keep getting serial data and 
+    then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''
+    while True:
+        try:
+            getSerial(usb)
+        except KeyboardInterrupt:
+            saveFile(usb)
+            csv_reader(outputFile)
+            break
+            
 
 
 
