@@ -182,6 +182,15 @@ class CameraPanel(wx.Panel):
 		CameraStopBtn = wx.Button(self, label="Stop Stream")
 		CameraStopBtn.Bind(wx.EVT_BUTTON, self.closeCamera)
 
+		###
+		self.name = 'C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4'
+	#	textBox = wx.TextCtrl(self, value=self.name, style=wx.SINGLELINE)
+	#	self.lblname = wx.StaticText(self, label="Writing to:" + self.name))
+		#dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
+		#dlg.ShowModal()
+		#self.name = dlg.getValue
+				
+		###
 
 		Sizer = wx.BoxSizer(wx.VERTICAL)
 		Sizer.Add(CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -189,7 +198,10 @@ class CameraPanel(wx.Panel):
 
 		self.SetSizerAndFit(Sizer)
 	def onStart(self, event=None):
-		runCamera(True)
+		runCamera(self.name, saving =True)
+
+	#def getValue(self):
+
 
 
 	def closeCamera(self, event=None):
@@ -240,7 +252,7 @@ class BlinkPanel(wx.Panel):
 	
 ###############################################################################
 
-class GraphPanel(wx.Frame):
+class GraphPanel(wx.Panel):
 	""" The graphing frames frame of the application
 	"""
 	title = 'Demo: dynamic matplotlib graph'
@@ -272,17 +284,17 @@ class GraphPanel(wx.Frame):
 		
 		#self.create_menu()
 		#self.create_status_bar()
-		#self.create_main_panel()
+		self.create_main_panel()
 		
 		#self.redraw_timer = wx.Timer(self)
 		#self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
 		#self.redraw_timer.Start(REFRESH_INTERVAL_MS)
 
 	def create_menu(self):
-		savePlotBtn =  wx.Button(self, "Save plot to file")
+		savePlotBtn =  wx.Button(self, label="Save plot to file")
 		savePlotBtn.Bind(wx.EVT_BUTTON, self.on_save_plot)
 		menu_file.AppendSeparator()
-		m_save = menu_file.Append(-1, "Save data")
+		m_save = menu_file.Append(-1, label="Save data")
 		self.Bind(wx.EVT_MENU, self.on_save_data, m_save)
 
 
@@ -491,14 +503,61 @@ class GraphPanel(wx.Frame):
 			self.flash_status_message("Saved to %s" % path)
 		
 ################################################################################
+class BoundControlBox(wx.Panel):
+    """ A static box with a couple of radio buttons and a text
+        box. Allows to switch between an automatic mode and a 
+        manual mode with an associated value.
+    """
+    def __init__(self, parent, ID, label, initval):
+        wx.Panel.__init__(self, parent, ID)
+        
+        self.value = initval
+        
+        box = wx.StaticBox(self, -1, label)
+        sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+        
+        self.radio_auto = wx.RadioButton(self, -1, 
+            label="Auto", style=wx.RB_GROUP)
+        self.radio_manual = wx.RadioButton(self, -1,
+            label="Manual")
+        self.manual_text = wx.TextCtrl(self, -1, 
+            size=(35,-1),
+            value=str(initval),
+            style=wx.TE_PROCESS_ENTER)
+        
+        self.Bind(wx.EVT_UPDATE_UI, self.on_update_manual_text, self.manual_text)
+        self.Bind(wx.EVT_TEXT_ENTER, self.on_text_enter, self.manual_text)
+        
+        manual_box = wx.BoxSizer(wx.HORIZONTAL)
+        manual_box.Add(self.radio_manual, flag=wx.ALIGN_CENTER_VERTICAL)
+        manual_box.Add(self.manual_text, flag=wx.ALIGN_CENTER_VERTICAL)
+        
+        sizer.Add(self.radio_auto, 0, wx.ALL, 10)
+        sizer.Add(manual_box, 0, wx.ALL, 10)
+        
+        self.SetSizer(sizer)
+        sizer.Fit(self)
+    
+    def on_update_manual_text(self, event):
+        self.manual_text.Enable(self.radio_manual.GetValue())
+    
+    def on_text_enter(self, event):
+        self.value = self.manual_text.GetValue()
+    
+    def is_auto(self):
+        return self.radio_auto.GetValue()
+        
+    def manual_value(self):
+        return self.value
+################################################################################
 #def camera():
 #	def __init__(self, parent):
 #		self.p = subprocess.Popen() 
 # vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\jyang\\Desktop\\designReview-2.mp4}'}"
-def runCamera(saving=False):
+def runCamera(name, saving=False):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 
-	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + name + '.mp4}\'}\"' #C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
 
 	#save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
 
