@@ -11,7 +11,7 @@ import IMU_Write_Working
 # backend. 
 #
 # inherited from nicole's code
-from datetime import *
+import datetime
 import matplotlib
 #matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
@@ -22,22 +22,8 @@ import numpy as np
 import pylab
 
 #Data comes from here
-from FallSiteVisit_GUI import SerialData
-import outputnumbers
-
-################################################################################
-#Data input processor
-def IRdataGen(isSerial=False): # Default to dummy variables
-	if(~isSerial):
-		IR1 = outputnumbers.genNums(1, 104)
-		IR2 = outputnumbers.genNums(1, 104)
-		IR3 = outputnumbers.genNums(1, 104)
-		light= 0
-		return [IR1, IR2, IR3, light]
-	else:
-		return SerialData()
-
-
+from FallSiteVisit_GUI import SerialData as IRserialData
+from outputnumbers import SerialData as genIRserialData
 ################################################################################
 
 #Data comes from here
@@ -176,15 +162,18 @@ class CameraPanel(wx.Panel):
 
 		self.parent = parent  # Sometimes one can use inline Comments
 
-		CameraStartBtn = wx.Button(self, label="Start Stream")
-		CameraStartBtn.Bind(wx.EVT_BUTTON, self.onStart )
+		self.CameraStartBtn = wx.Button(self, label="Start Stream")
+		self.CameraStartBtn.Bind(wx.EVT_BUTTON, self.onStart)
 
-		CameraStopBtn = wx.Button(self, label="Stop Stream")
-		CameraStopBtn.Bind(wx.EVT_BUTTON, self.closeCamera)
+		self.CameraStopBtn = wx.Button(self, label="Stop Stream")
+		self.CameraStopBtn.Bind(wx.EVT_BUTTON, self.closeCamera)
 
 		###
-		self.name = 'C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4'
-	#	textBox = wx.TextCtrl(self, value=self.name, style=wx.SINGLELINE)
+		self.directoryName = "C:\\\Users\\\jyang\\\Desktop\\\Log"
+		self.name = ''
+		self.textBox = wx.TextCtrl(self, -1, size=(140,-1))
+		self.textBox.SetValue(self.name)
+	
 	#	self.lblname = wx.StaticText(self, label="Writing to:" + self.name))
 		#dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
 		#dlg.ShowModal()
@@ -193,12 +182,19 @@ class CameraPanel(wx.Panel):
 		###
 
 		Sizer = wx.BoxSizer(wx.VERTICAL)
-		Sizer.Add(CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-		Sizer.Add(CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		Sizer.Add(self.CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		Sizer.Add(self.CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		Sizer.Add(self.textBox)
 
 		self.SetSizerAndFit(Sizer)
 	def onStart(self, event=None):
-		runCamera(self.name, saving =True)
+		self.name = self.textBox.GetValue()
+		if not self.name:
+			dt = datetime.datetime.now()
+			name = self.directoryName + dt.strftime("%m_%d_%Y_%H_%M%p")
+		else:
+			name = self.directoryName
+		runCamera(name, saving =True)
 
 	#def getValue(self):
 
@@ -262,11 +258,11 @@ class GraphPanel(wx.Panel):
 		
 		#**************************
 		#Remember, this comes in the form [IR1, IR2, IR3, light]
-		#self.datagen = IRdataGen()
-		#self.data = self.datagen.next()
-		self.data = IRdataGen()
+		self.datagen = genIRserialData()
+		self.data = self.datagen.next()
+		#self.data = IRdataGen()
 		#**************************
-		self.time = [datetime.now().time()]
+		self.time = [datetime.datetime.now().time()]
 		self.IR1 = [self.data[0]]
 		self.lightAvg = 0
 		self.light = [self.data[3]]
