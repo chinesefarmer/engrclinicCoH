@@ -1,5 +1,5 @@
 #include <SPI.h>
-//#include <Wire.h>
+#include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM9DS0.h>
 // To get the arduino values: https://github.com/adafruit/Adafruit_LSM9DS0_Library

@@ -11,12 +11,19 @@ import pylab as pl
 from datetime import *
 
 #----------Global Variables for the IMU--------------------------------
+# Customizable Parameters
 avgSize = 30                    # Moving Average Filter Sample Size
 pauseCheck = 0                                 # Debug code
 SAMPLE_LENGTH = 2500
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
 ACCEPTABLE_YAW_RANGE = 3
 MAX_OP_INCLINE = 0
+calibrationNo = 100             # Number of iterations during calibration step
+
+# Required for some functions
+trialNum = 0;
+nextR = 0; nextP = 0; nextY = 0; 
+gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
 #---------------------------------------------------------------------
 
 #--------Global Variables for the Blink Sensor--------------------------
@@ -218,12 +225,13 @@ def timeAtAngle(time,angle):
     minAngle = int(min(angle))
     
     # Array of zeros with a fixed size equal to the total number of whole number angles
-    angleTimes = np.zeros(int(max(angle))-minAngle)
+    angleTimes = np.zeros(int(max(angle))-minAngle + 1)
     timeAtAng = []
 
     # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
     for i in range(len(angle)-1):
-        angleTimes[int(angle[i])-minAngle - 1] += avgTimeStep
+        currentAngle = int(angle[i])- minAngle
+        angleTimes[currentAngle] += avgTimeStep
     # Creates a list of angle values that corresponds to the times above
     angleList = [x+minAngle for x in range(len(angleTimes))]
 
@@ -299,195 +307,473 @@ def calcGyroYaw(timeTot, gyro):
 
     return yawAngle
 
+# Will return 0 if the function fails to receive readable data from serial and
+# will return 1 if the function succeeds
+def receiveSerial():
 
-#Set port and baudRate when calling this function
-def receiving(port, baudRate):
-    #Initialize variables for roll, pitch, yaw calculations
-    global gyroDriftY
-    roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
-    prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
-    acclXCal = 0; acclYCal = 0; acclZCal = 0
-    
-    #Other important variables
-    frequencyLoop = 5
+    serialData = []
+    #It also works if you just read the line instead of using a legit buffer
+    buffer = usb.readline()
+    #buffer = buffer + usb.read(usb.inWaiting())
+    #raw_input("Press enter to continue...")
+        
+    if '\n' in buffer:
+        lines = buffer.split('\n')
+        last_received_full = lines[-2]
+
+        if '\t' in last_received_full:
+            last_received_tabbed = last_received_full.split('\t')
+
+            # Will try to save data from buffer to variables.
+            # Otherwise will start to the loop over again
+            # Prevents indexing errors caused by too few values in the buffer
+            try:
+                GyroZ1 = last_received_tabbed[9]         #Keep this line at the end
+            except IndexError:
+                return [0, serialData]
+
+            # Makes the string an actual float value
+            if '\r' in GyroZ1:
+                GyroZBogus = GyroZ1.split('\r')
+                GyroZ = GyroZBogus[0]
+            else:
+                GyroZ = GyroZ1
+
+
+            # Will try to save data from buffer to variables.
+            # Otherwise will start to the loop over again
+            # Prevents Value errors caused by non-float buffer values
+            try:
+                IR = float(last_received_tabbed[0])
+                AcclX = float(last_received_tabbed[1])        
+                AcclY = float(last_received_tabbed[2])
+                AcclZ = float(last_received_tabbed[3])
+                MagX = float(last_received_tabbed[4])       
+                MagY = float(last_received_tabbed[5])
+                MagZ = float(last_received_tabbed[6])
+                GyroX = float(last_received_tabbed[7])        
+                GyroY = float(last_received_tabbed[8])
+                GyroZ = float(GyroZ)
+                roll = 0
+                pitch = 0
+                yaw = 0
+                serialData = [IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
+                return [1, serialData]
+            except ValueError:
+                return [0, serialData]
+    return [0, serialData]
+
+
+def calcRPYData(serialData):
+    [IR1,AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw] = serialData
+    #Initialize variables for requried roll, pitch, yaw calculations
+    global trialNum, nextR, nextP, nextY, gyroDriftX, gyroDriftY, gyroDriftZ
     global calibrationNo
-    calibrationNo = 100             # Number of iterations during calibration step
-    usb = Serial(port, baudRate)
-    usb.timeout = 1
     global last_received
-    buffer = ''
-    error = 0
-    # Writes the first line of csv file
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
     global startTime
-    
-    while True:
+    # Calibration Sequence: Accounts for drift of gyro data
+    # During calibration, the IMU must be placed on a stationary
+    # surface
+    if (trialNum < 5):
+        trialNum = trialNum + 1
+    elif(trialNum < calibrationNo - 1):
+        trialNum = trialNum + 1
+        gyroDriftX = gyroDriftX - GyroX
+        gyroDriftY = gyroDriftY - GyroY
+        gyroDriftZ = gyroDriftZ - GyroZ
 
-        #It also works if you just read the line instead of using a legit buffer
-        buffer = usb.readline()
-        #buffer = buffer + usb.read(usb.inWaiting())
-        #raw_input("Press enter to continue...")
-            
-        if '\n' in buffer:
-            lines = buffer.split('\n')
-            last_received_full = lines[-2]
+    elif(trialNum == calibrationNo - 1):
+        trialNum = trialNum + 1
+        gyroDriftX = gyroDriftX / calibrationNo
+        gyroDriftY = gyroDriftY / calibrationNo
+        gyroDriftZ = gyroDriftZ / calibrationNo
+    # Calibration Sequence completed
+    else:
 
-            if '\t' in last_received_full:
-                last_received_tabbed = last_received_full.split('\t')
+        #Pause initiated to allow users to secure the IMU on user's head
+        global pauseCheck
+        if(pauseCheck == 0):
+            pauseCheck = 1
+            #Should be replaced with GUI interrupt that triggers when
+            #the IMU is secured
+            raw_input("Please put on Headset, then press enter:")
+  
+        trialNum = trialNum + 1
 
-                # Will try to save data from buffer to variables.
-                # Otherwise will start to the loop over again
-                # Prevents indexing errors caused by too few values in the buffer
-                try:
-                    GyroZ1 = last_received_tabbed[8]         #Keep this line at the end
-                except IndexError:
-                    continue
+        roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
+        pitch = 0
+        # Calculates the pitch while accounting for edge cases
+        if(AcclZ*sin(roll) + AcclY*cos(roll) == 0):
+            if(AcclX > 0):
+                pitch = pi/2
+            else:
+                pitch = -1*pi/2
+        else:
+            pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
 
-                # Makes the string an actual float value
-                if '\r' in GyroZ1:
-                    GyroZBogus = GyroZ1.split('\r')
-                    GyroZ = GyroZBogus[0]
-                else:
-                    GyroZ = GyroZ1
+        yawY = MagY*sin(roll) - MagZ*cos(roll)
+        yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
 
-                # Will try to save data from buffer to variables.
-                # Otherwise will start to the loop over again
-                # Prevents Value errors caused by non-float buffer values
-                try:
-                    AcclX = float(last_received_tabbed[0])        
-                    AcclY = float(last_received_tabbed[1])
-                    AcclZ = float(last_received_tabbed[2])
-                    MagX = float(last_received_tabbed[3])       
-                    MagY = float(last_received_tabbed[4])
-                    MagZ = float(last_received_tabbed[5])
-                    GyroX = float(last_received_tabbed[6])        
-                    GyroY = float(last_received_tabbed[7])
-                    GyroZ = float(GyroZ)
-                except ValueError:
-                    continue
+        yawOffset = 0
+        
+        yaw = atan2(yawY, yawX)
+        
+        gX = abs(GyroX + gyroDriftX)
+        gY = abs(GyroY + gyroDriftY)
+        gZ = abs(GyroZ + gyroDriftZ)
 
-                # Calibration Sequence: Accounts for drift of gyro data
-                # During calibration, the IMU must be placed on a stationary
-                # surface
-                if (n < 5):
-                    n = n + 1
-                elif(n < calibrationNo - 1):
-                    n = n + 1
-                    gyroDriftX = gyroDriftX - GyroX
-                    gyroDriftY = gyroDriftY - GyroY
-                    gyroDriftZ = gyroDriftZ - GyroZ
+        prevR = nextR
+        prevP = nextP
+        prevY = nextY
 
-                elif(n == calibrationNo - 1):
-                    n = n + 1
-                    gyroDriftX = gyroDriftX / calibrationNo
-                    gyroDriftY = gyroDriftY / calibrationNo
-                    gyroDriftZ = gyroDriftZ / calibrationNo
-                # Calibration Sequence completed
-                else:
+        nextR = (prevR + roll*gX) / (1 + gX)
+        nextP = (prevP + pitch * gZ) / (1 + gZ)
+        nextY = (prevY + yaw * gY) / (1 + gY)
 
-                    #Pause initiated to allow users to secure the IMU on user's head
-                    global pauseCheck
-                    if(pauseCheck == 0):
-                        pauseCheck = 1
-                        #Should be replaced with GUI interrupt that triggers when
-                        #the IMU is secured
-                        raw_input("Please put on Headset, then press enter:")
-              
-                    n = n + 1
+        roll = nextR*180/pi
+        pitch = -1*nextP*180/pi
+        yaw = abs(nextY*180/pi)
 
-                    roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
+    timeStamp = datetime.now().time()
+    #Time elapsed from start
+    currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
+    #Saves the IMU data to a csv file
+    data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
+    csv_writer(data,filenameIMU)
+    return [roll, pitch, yaw,currTime]
 
-                    # Calculates the pitch while accounting for edge cases
-                    if(AcclZ*sin(roll) + AcclY*cos(roll) == 0):
-                        if(AcclX > 0):
-                            pitch = pi/2
-                        else:
-                            pitch = -1*pi/2
-                    else:
-                        pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
+##    # Stops program after a number of samples have been collected
+##    # Should be replaced with interrupt by GUI
+##    global SAMPLE_LENGTH
+##    if(trialNum >= SAMPLE_LENGTH):
+##        # Plots the RPY data
+##        csv_reader(filenameIMU)
+##        break
 
-                    yawY = MagY*sin(roll) - MagZ*cos(roll)
-                    yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
+def processIMUData(IMUData):
+    [roll, pitch, yaw, currTime] = IMUData
+    rtSmoothFilter();
 
-                    yawOffset = 0
-                    
-                    yaw = atan2(yawY, yawX)
-                    
-                    gX = abs(GyroX + gyroDriftX)
-                    gY = abs(GyroY + gyroDriftY)
-                    gZ = abs(GyroZ + gyroDriftZ)
 
-                    prevR = nextR
-                    prevP = nextP
-                    prevY = nextY
-
-                    nextR = (prevR + roll*gX) / (1 + gX)
-                    nextP = (prevP + pitch * gZ) / (1 + gZ)
-                    nextY = (prevY + yaw * gY) / (1 + gY)
-
-                    roll = nextR*180/pi
-                    pitch = -1*nextP*180/pi
-                    yaw = abs(nextY*180/pi)
-
-                timeStamp = datetime.now().time()
-                #Time elapsed from start
-                currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
-                #Saves the IMU data to a csv file
-                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-                csv_writer(data,filenameIMU)
-
-                # Stops program after a number of samples have been collected
-                # Should be replaced with interrupt by GUI
-                global SAMPLE_LENGTH
-                if(n >= SAMPLE_LENGTH):
-                    # Plots the RPY data
-                    csv_reader(filenameIMU)
-                    break
+# Real Time Smooth Filter
+def rtSmoothFilter():
+    return
 
 
 
-##                AcclXTot.append(AcclX);
-##                if(n == 200):
-##                    print len(AcclXTot)
-##                    numSamples = np.linspace(1,200,200)
-##                    print len(numSamples)
-##                    print AcclXTot
-##                    print numSamples
-##                
-##                    pl.plot(numSamples, AcclX)
-##                    pl.show()
 
-##                print "-----------------------------------------" 
-##                print "Accl \t\t Mag \t\t Gyro"
-##                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
-##                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
-##                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
-##                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
-##                print "Sample Number is: " + str(n)
-##                print "-----------------------------------------"
-##                print " "
-
-
-
-            #buffer = lines[-1]
                 
 #------------------------Blink Sensor Functions--------------------------
 '''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
 It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
 I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
 #Set port and baudRate when calling this function
-def initSerialConnection(usb,nameOfFile):
+def initSerialConnection(usb):
     usb.timeout = 1
     
     #This hopefully resets the Arduino
     usb.setDTR(False)
-    time.sleep(1)
+    #Was breaking
+    #time.sleep(1)
     usb.flushInput()
     usb.setDTR(True)
     
     buffer = ''
-    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],nameOfFile)
 
+    #Writes the first line of both files
+    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],filename)
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
+
+    
+'''BEN: Make sure to call this function and input the newest IR1 value from the serial data. This runs the algorithm''' 
+def blinkAlgorithm(IR1):
+    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
+    global negSlopeThresh, posSlopeThresh, error
+    global derivVector, n, trackPos, trackNeg, startIR, startIndex, endIndex, startT
+    global endT, endIR, peak, valley, blinkRange, negB, posB, positive, negative, runningAvg
+
+    timeD = datetime.now().time()
+    timeDate = datetime.now().date()
+    
+    tDif = abs(minutes - startTime - tPrintBlink)
+    if(tDif < 10**-2):
+        print ""
+        print "--------------------------------------------------"
+        print str(len(subBlink)) + " blinks in the last " + str(round(tWindow,1)) + " minutes"
+        print "--------------------------------------------------"
+        print ""
+        startTime = minutes
+## Error: Doens't Compile. Fcn doesnt exist
+
+#    UpdateBlinksInWindow()
+            
+    if(error == 1):
+        error = 0
+    else:
+        #Do some blink sensing stuff
+        IRVector.append(IR1)
+        minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
+        tVector.append(minutes)
+        if(len(IRVector) > 1):
+            i = len(IRVector)-1
+            
+            #2nd Error Division by Zero
+            #Take the derivative
+            deriv = (IRVector[i]-IRVector[i-1])/(tVector[i]-tVector[i-1])
+            derivVector.append(deriv)
+            
+            if(trackPos):
+                if debug:
+                    print "Tracking positive slope"
+                if(len(derivVector)<n):
+                    runningAvg = sum(derivVector)/len(derivVector)
+                else:
+                    runningAvg = sum(derivVector[i-(n-1):i+1])/n
+                
+                #This means it was a false alarm, I may need two positive thresholds
+                #I'm saying this isn't a blink if the running average falls below a threshold
+                #and the slope hasn't been within the threshold for n or more values
+                if(runningAvg < posSlopeThresh and len(derivVector) < n):
+                    blinkVector.extend([0]*(i-startIndex))
+                    if debug:
+                        print "False Positive Alarm w/ Deriv: " + str(deriv)
+                        print "Time = " + str(time[i])
+                    trackPos = False
+                    runningAvg = 0
+                    startT = 0
+                    startIndex = 0
+                    startIR = 0
+                    peak = 0
+                #Otherwise we might be part of the slope still
+                else:
+                    #If the IRVal is greater than the previous peak, this is now
+                    #considered the peak
+                    if(IRVector[i-1] > peak):
+                        peak = IRVector[i-1]
+                    #If at any point the running average is "flat", meaning the slope is
+                    #less than the positive threshold and greater than the negative one,
+                    #that likely means we're at the end of the blink
+                    if(deriv < 0):
+                        if(deriv > negSlopeThresh):
+                            negative = negative + 1
+                            if(negative > n):
+                                endT = tVector[i-2]
+                                endIndex = i-2
+                                endIR = IRVector[i-2]
+                                if(endIR == peak):
+                                    blinkVector.extend([0]*(i-startIndex+1))
+                                    if debug:
+                                        print "Bad"
+                                elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
+                                    if debug:
+                                        print "Ending time is: " + str(endT)
+                                        print "Ending deriv is " + str(deriv)
+                                    blinkRange.append([startT, endT])
+                                    blinkVector.extend(IRVector[startIndex:i+1])
+                                    if(len(blinkRange)>0):
+                                        AddBlinksInWindow(blinkRange[-1])
+                                    if debug:
+                                        print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                    print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
+                                else:
+                                    blinkVector.extend([0]*(i-startIndex+1))
+                                     
+                                endT = 0
+                                endIndex = 0
+                                endIR = 0
+                                trackPos = False
+                                runningAvg = 0
+                                startT = 0
+                                startIR = 0
+                                peak = 0
+                                #Clearing out the vector a little
+                                derivVector = derivVector[i-(n-1):i+1]
+                                positive = 0
+                                negative = 0
+                                negB = False
+                            else:
+                                negB = True
+                        else:
+                            negB = True
+                            
+                    elif(negB):
+                        if(positive == 0):
+                            positive = 1
+                        elif(positive == 1):
+                            positive = 2
+                        else:
+                            endT = tVector[i-2]
+                            endIndex = i-2
+                            endIR = IRVector[i-2]
+                            if(endIR == peak):
+                                blinkVector.extend([0]*(i-startIndex+1))
+                            elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
+                                if debug:
+                                    print "Ending time is: " + str(endT)
+                                blinkRange.append([startT, endT])
+                                blinkVector.extend(IRVector[startIndex:i+1])
+                                if(len(blinkRange)>0):
+                                        AddBlinksInWindow(blinkRange[-1])
+                                if debug:
+                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
+                            else:
+                                blinkVector.extend([0]*(i-startIndex+1))
+                            endT = 0
+                            endIndex = 0
+                            endIR = 0
+                            trackPos = False
+                            runningAvg = 0
+                            startT = 0
+                            peak = 0
+                            #Clearing out the vector a little
+                            derivVector = derivVector[i-(n-1):i+1]
+                            negB = False
+                            positive = 0
+                    
+            elif(trackNeg):
+                if debug:
+                    print "Tracking negative slope w/ deriv: " + str(deriv)
+                if(len(derivVector)<n):
+                    runningAvg = sum(derivVector)/len(derivVector)
+                else:
+                    runningAvg = sum(derivVector[i-(n-1):i+1])/n
+                if debug:    
+                    print "Running Average: " + str(runningAvg)
+                
+                #This means it was a false alarm, I may need two positive thresholds
+                #I'm saying this isn't a blink if the running average falls below a threshold
+                #and the slope hasn't been within the threshold for n or more values
+                if(runningAvg > negSlopeThresh and len(derivVector) < n):
+                    if debug:
+                        print "False Negative Alarm w/ Deriv: " + str(deriv)
+                        print "Time = " + str(time[i])
+                    trackNeg = False
+                    runningAvg = 0
+                    startT = 0
+                    startIndex = 0
+                    startIR = 0
+                    valley = 0
+                #Otherwise we might be part of the slope still
+                else:
+                    #If the IRVal is greater than the previous peak, this is now
+                    #considered the peak
+                    if(IRVector[i-1] < valley):
+                        valley = IRVector[i-1]
+                    #We're coming up from the valley
+                    if(deriv > 0):
+                        #If the derivative is less than the positive threshold, that means
+                        #we've likely flattened out
+                        if(deriv < posSlopeThresh):
+                            positive = positive + 1
+                            #If there's been a positive slope for n times, the blink is over
+                            if(positive > n):
+                                endT = tVector[i-2]
+                                endIndex = i-2
+                                endIR = IRVector[i-2]
+                                if(endIR == valley):
+                                    blinkVector.extend([0]*(i-startIndex+1))
+                                elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
+                                    if debug:
+                                        print "Ending time is: " + str(endT)
+                                    blinkRange.append([startT, endT])
+                                    if debug:
+                                        print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                    print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
+                                    blinkVector.extend(IRVector[startIndex:i+1])
+                                    if(len(blinkRange)>0):
+                                        AddBlinksInWindow(blinkRange[-1])
+                                else:
+                                    blinkVector.extend([0]*(i-startIndex+1))
+                                trackNeg = False
+                                runningAvg = 0
+                                startT = 0
+                                endT = 0
+                                endIndex = 0
+                                endIR = 0
+                                valley = 0
+                                positive = 0
+                                #Clearing out the vector a little
+                                derivVector = derivVector[i-(n-1):i+1]
+                                posB = False
+                                negative = 0
+                            #Otherwise note that we have a positive slope right now
+                            else:
+                                posB = True
+                        else:
+                            posB = True
+                    #If the slope is negtaive after we've been coming out of the valley, that
+                    #means the blink is over
+                    elif(posB):
+                        #Just in case I'll wait one round to be sure
+                        if(negative == 0):
+                            negative = 1
+                        elif(negative == 1):
+                            negative = 2
+                        else:
+                            endT = tVector[i-2]
+                            endIndex = i-2
+                            endIR = IRVector[i-2]
+                            if(endIR == valley):
+                                blinkVector.extend([0]*(i-startIndex+1))
+                            elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
+                                if debug:
+                                    print "Ending time is: " + str(endT)
+                                blinkRange.append([startT, endT])
+                                blinkVector.extend(IRVector[startIndex:i+1])
+                                if debug:
+                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
+                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
+                                if(len(blinkRange)>0):
+                                        AddBlinksInWindow(blinkRange[-1])
+                            else:
+                                blinkVector.extend([0]*(i-startIndex+1))
+                            trackNeg = False
+                            runningAvg = 0
+                            startT = 0
+                            valley = 0
+                            endT = 0
+                            endIndex = 0
+                            endIR = 0
+                            #Clearing out the vector a little
+                            derivVector = derivVector[i-(n-1):i+1]
+                            posB = False
+                            negative = 0
+
+            #This runs the first time through since we haven't checked the
+            #slopes yet
+            else:
+                #May be dealing with a peak
+                if(deriv >= posSlopeThresh):
+                    #start tracking the slope!
+                    if debug:
+                        print "Looking for peak at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
+                    trackPos = True
+                    startT = tVector[i-1]
+                    startIndex = i-1
+                    startIR = IRVector[i-1]
+                    peak = IRVector[i-1]
+                #May be dealing with a valley
+                elif(deriv <= negSlopeThresh):
+                    if debug:
+                        print "Looking for valley at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
+                    trackNeg = True
+                    startT = tVector[i-1]
+                    startIR = IRVector[i-1]
+                    startIndex = i-1
+                    valley = IRVector[i-1]
+                else:
+                    startT = 0
+                    startIndex = 0
+                    startIR = 0
+                    peak = 0
+                    valley = 0
+                    blinkVector.append(0)
+        data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month),
+                "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
+                (timeD.second + 0.000001*timeD.microsecond) ,IR1]
+        global filename
+        csv_writer(data,filename)
 
 
 
@@ -497,6 +783,7 @@ def initSerialConnection(usb,nameOfFile):
 
 if __name__=='__main__':
 
+    global filename,filenameIMU,outputFile
     #Writes the raw data for the blink sensor
     filename = raw_input('Enter a file name:  ')+ ".csv"
     #Writes the raw data for the IMU
@@ -504,16 +791,31 @@ if __name__=='__main__':
     #Reads the data to process for the blink sensor
     outputFile = (filename[:-4] + 'Full.csv' )
 
-    usb = receiving('COM6',57600)
-    initSerialConnection(usb,outputFile)
+    usb = Serial('COM6', 57600)
+    initSerialConnection(usb)
     '''BEN: This is the loop I'm using right now to keep getting serial data and 
     then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''
     while True:
         try:
-            getSerial(usb)
+            serialData = receiveSerial()
+            #Ensures that no errors are in the serialData array
+            #serialData[0] == 1 means that there were no failures
+            #serialData[0] == 0 means there was at least one failure
+            if(serialData[0] == 1):
+                #[roll, pitch, yaw, currTime]
+                IMUData = calcRPYData(serialData[1])
+                processIMUData(IMUData)
+
+
+
+#                print (serialData[1])[0]
+#                blinkAlgorithm((serialData[1])[0])
+
+            # getSerial(usb)
         except KeyboardInterrupt:
-            saveFile(usb)
-            csv_reader(outputFile)
+            csv_reader(filenameIMU)
+            # saveFile(usb)
+            # csv_reader(outputFile)
             break
             
 
