@@ -1,5 +1,3 @@
-#removed Y:D:M from the first column of save file
-#tVector needs to be cleared out occasionally
 import csv
 import math
 from serial import *
@@ -8,37 +6,46 @@ import time
 import pylab as pl
 from KeyPress import *
 import numpy as np
-#Check different base lines for smoothing algorithms?
-#Yo! You're saving a duplicate of your data in your Full.csv file. Look into this...
 debug = False
 test = False
-error = 0
-#YO TEAM!!!
-#You must ALWAYS type usb.close() after you keyboard interrupt the code to quit
-#otherwise you'll be forced to unplug and replug the sensor
 
 
-
-
-#Set port and baudRate when calling this function
+'''
+Resets and initializes the connection with the Arduino. Also creates the csv file where
+the data will be saved later.
+Inputs: usb (the serial connection including the port and baudrate)
+        BlinkSensor (the initialized BlinkSensor class that holds all the algorithm info)
+Outpus: None
+'''
 def initSerialConnection(usb, BlinkSensor):
+    #Sets a 1ms pause between collecting data points
     usb.timeout = 1
     
-    #This hopefully resets the Arduino
+    #Resets the Arduino
     usb.setDTR(False)
     time.sleep(1)
     usb.flushInput()
     usb.setDTR(True)
     
     buffer = ''
+    #Clears and overwrites the text file that will contain the detected blinks
     BlinkSensor.saveBlinks([],1)
+    #The csv file will save the times where actual blinks occurred if you set CheckKeyPress
+    #to True, meaning you are running both this script and KeyPress.py at the same time
     if BlinkSensor.CheckKeyPress == True:
         BlinkSensor.csv_writer(["Hour","Minute","Second","IR1","Blinks", "Actual Blinks"], 1)
     else:
         BlinkSensor.csv_writer(["Hour","Minute","Second","IR1","Blinks"], 1)
 
+
+'''
+Gets the next IR value from the Arduino serial connection and sends it to the blink detection
+algorithm.
+Inputs: usb (the serial connection including the port and baudrate)
+        BlinkSensor (the initialized BlinkSensor class that holds all the algorithm info)
+Outpus: None
+'''
 def getSerial(usb, BlinkSensor):
-    global error
     global debug
     buffer = usb.readline()
         
@@ -50,64 +57,97 @@ def getSerial(usb, BlinkSensor):
             if len(IR1Bogus) > 12:
                 print "Error"
             else:
+                #Sometimes the sensor will not send a value or send something that's not possible
+                #to turn into a float 
                 try:
                     IR1 = float(IR1Bogus[0])
+                    BlinkSensor.Algorithm(IR1, False)
                 except ValueError:
-                    error = 1
                     print "Value Error"
                     
         else:
             try:
                 IR1 = float(IR1)
+                BlinkSensor.Algorithm(IR1, False)
             except ValueError:
-                error = 1
                 print "Value Error"
-                
-        if(error == 1):
-            print "Error"
-            error = 0
-        else:
-            BlinkSensor.Algorithm(IR1, False)
 
+'''
+Blink Sensor class containing the following methods:
+    clearParameters
+    csv_writer
+    Algorithm
+    PeakAlgorithm
+    ValleyAlgorithm
+    saveBlinks
+    openBlinks
+    saveFile
+    addBlinksinWindow
+    updateBlinksinWindow
+    csv_reader
 
+'''
 class BlinkSensor:
     def __init__(self):
-        #Any derivatives above/below these values are considered part of a blink
+        #The following are parameters that change what the algorithm defines as a blink
+        #For a blink that looks like a valley, the negative slope must be less than:
         self.negSlopeThresh = -6000
+        #For a blink that looks like a peak, the positive slope must be greater than:
         self.posSlopeThresh = 13000
-        self.PeakBlinkHeight = 500
+        #The peak must be at least this tall to be considered a blink and not noise
+        self.PeakBlinkHeight = 430
+        #The valley must be at least this deep to be considered a blink and not noise
         self.ValleyBlinkHeight = 1000
 
-        self.filename = ''
-        self.bogusFile = 'bogus.csv'
-        self.CheckKeyPress = True
-        self.IRVector = []
-        self.tVector = []
-        self.minVector = []
-        #Vector containing blink data for the blinks in the last X seconds, where X is tWindow
-        self.subBlink = []
-        #Number of blinks in the last X seconds, where X is tWindow
+        #How often to calculate the number of blinks, in minutes
         self.tWindow = 1.0/3
-        #How often we print number of blinks in last X seconds, where X is tWindow
+        #How often to print number of blinks in last X minutes, where X is tWindow
         self.tPrintBlink = 1.0/6
+        
+        #The name of the file where the data is saved while the blink sensor is being run live
+        #at the end of the trial it is saved to filename
+        self.bogusFile = 'bogus.csv'
+        self.filename = ''
+        #Set equal to True if you are running KeyPress.py at the same time to record when the
+        #blinks are actually occurring.
+        self.CheckKeyPress = True
+        #Vector that holds the raw IR LED values
+        self.IRVector = []
+        #Vector that holds time values in seconds, used for the algorithm calculations
+        self.secVector = []
+        #Vector that holds time values in minutes (the current hour, minute, and second are converted into minutes)
+        #this is used to determine how often to print out the blink rate
+        self.minVector = []
+        #Vector containing blink data for the number of blinks in the last X minutes, where X is tWindow
+        self.subBlink = []
+        #The current time expressed in minutes
         self.minutes = 0
         timeStamp = datetime.now().time()
         #Used for keeping track of the starting time value of the subBlink vector
         self.startTime = (timeStamp.hour*60 +
                           timeStamp.minute +
                           (timeStamp.second + 0.000001*timeStamp.microsecond)/60)
+        #How often there has to be a positive or negative slope fitting the thresholds for it to be considered a blink
         self.n=4
+        #Algorithm sets to True if posSlopeThresh has been triggered meaning there might be a blink
         self.lookForPeak = False
+        #Algorith sets to True if negSlopethresh has been triggered meaning there might be a blink
         self.lookForValley = False
+        #The IR value at the beginning of what the algorithm thinks is a blink, used to determine the blink's height
         self.startIR = 0
-        self.startIndex = 0
-        self.endIndex = 0
-        self.blinkStart = 0
-        self.blinkStartMinutes = 0
-        self.blinkEnd = 0
-        self.blinkEndMinutes = 0
+        #The IR value at the end of what the algorithm thinks is a blink, used to determine the blink's height
         self.endIR = 0
+        #Blink's starting time in seconds (used for saving the blink into the csv)
+        self.blinkStartSec = 0
+        #Blink's starting time in minutes (used for printing out the blink rate)
+        self.blinkStartMinutes = 0
+        #Blink's ending time in seconds (used for saving the blink into the csv)
+        self.blinkEndSec = 0
+        #Blink's ending time in minutes (used for printing out the blink rate)
+        self.blinkEndMinutes = 0
+        #IR value of the blink's peak, used for calculating the blink's height
         self.peak = 0
+        #IR value of the blink's valley, used for calculating the blink's depth
         self.valley = 0
         self.negativeSlope = False
         self.positiveSlope = False
@@ -124,14 +164,13 @@ class BlinkSensor:
         self.negBlinkPoints = 0
 
     def clearParameters(self, i):
-        self.blinkEnd = 0
+        self.blinkEndSec = 0
         self.blinkEndMinutes = 0
-        self.endIndex = 0
         self.endIR = 0
         self.lookForPeak = False
         self.lookForValley = False
         self.blinkStartMinutes = 0
-        self.blinkStart = 0
+        self.blinkStartSec = 0
         self.startIR = 0
         self.peak = 0
         self.valley = 0
@@ -143,7 +182,7 @@ class BlinkSensor:
         
         #Clears out all except the two most recent values
         self.IRVector = self.IRVector[i-1:]
-        self.tVector = self.tVector[i-1:]
+        self.secVector = self.secVector[i-1:]
         self.minVector = self.minVector[i-1:]
         
 
@@ -168,7 +207,7 @@ class BlinkSensor:
             timeD = datetime.now().time()
             self.minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
             seconds = (timeD.second + 0.000001*timeD.microsecond)
-            self.tVector.append(seconds)
+            self.secVector.append(seconds)
             self.minVector.append(self.minutes)
 
             tDif = abs(self.minutes - self.startTime - self.tPrintBlink)
@@ -184,7 +223,7 @@ class BlinkSensor:
             self.UpdateBlinksInWindow()
         else:
             #########
-            self.tVector.append(self.timeTestMode)
+            self.secVector.append(self.timeTestMode)
             self.minVector.append(self.minTestMode)
         #Do some blink sensing stuff
         self.IRVector.append(IR1)
@@ -194,7 +233,7 @@ class BlinkSensor:
             i = len(self.IRVector)-1
             
             #Take the derivative
-            deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.tVector[i]-self.tVector[i-1])
+            deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
 
             #If it's a positive slope above the threshold, start tracking
             if(self.lookForPeak):
@@ -210,24 +249,22 @@ class BlinkSensor:
                 if(deriv >= self.posSlopeThresh):
                     #start tracking the slope!
                     if debug:
-                        print ("Looking for peak at time: " + str(self.tVector[i-1])
+                        print ("Looking for peak at time: " + str(self.secVector[i-1])
                                + "after deriv: " + str(deriv))
                     self.lookForPeak = True
-                    self.blinkStart = self.tVector[i-1]
+                    self.blinkStartSec = self.secVector[i-1]
                     self.blinkStartMinutes = self.minVector[i-1]
-                    self.startIndex = i-1
                     self.startIR = self.IRVector[i-1]
                     self.peak = self.IRVector[i-1]
                 #May be dealing with a valley
                 elif(deriv <= self.negSlopeThresh):
                     if debug:
-                        print ("Looking for valley at time: " + str(self.tVector[i-1])
+                        print ("Looking for valley at time: " + str(self.secVector[i-1])
                                + "after deriv: " + str(deriv))
                     self.lookForValley = True
-                    self.blinkStart = self.tVector[i-1]
+                    self.blinkStartSec = self.secVector[i-1]
                     self.blinkStartMinutes = self.minVector[i-1]
                     self.startIR = self.IRVector[i-1]
-                    self.startIndex = i-1
                     self.valley = self.IRVector[i-1]
                 else:
                     self.clearParameters(i)
@@ -249,34 +286,33 @@ class BlinkSensor:
             #that likely means we're at the end of the blink
             if(deriv > self.negSlopeThresh):
                 if debug:
-                    print "Nearing end of peak at "+str(self.tVector[i])+" sec w/ deriv "+ str(deriv)
+                    print "Nearing end of peak at "+str(self.secVector[i])+" sec w/ deriv "+ str(deriv)
                 self.negative = self.negative + 1
                 if(self.negative > self.n):
-                    self.blinkEnd = self.tVector[i-2]
+                    self.blinkEndSec = self.secVector[i-2]
                     self.blinkEndMinutes = self.minVector[i-2]
-                    self.endIndex = i-2
                     self.endIR = self.IRVector[i-2]
                         #Would this be a good spot to clear out the vector?
                     if((self.peak-self.endIR) > self.PeakBlinkHeight and
                        (self.peak-self.startIR) > self.PeakBlinkHeight):
-                        self.saveBlinks([[self.blinkStart, self.blinkEnd]],2)
+                        self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
                         self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
                         if debug:
-                            print "Blink from : " + str(self.blinkStart) + " sec to "+str(self.blinkEnd)+" sec"
-                        print "Length of blink: " + str(round((self.blinkEnd-self.blinkStart),3)) + " sec"
+                            print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
+                        print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),3)) + " sec"
                         
                     #It's not a blink unless the height is large enough, set by the BlinkHeight
                     #variable
                     else:
                         if debug:
-                            print "Peak ignored at " + str(self.tVector[i]) + " sec, height not large enough"
+                            print "Peak ignored at " + str(self.secVector[i]) + " sec, height not large enough"
 
                     self.clearParameters(i)                                                            
                 else:
                     self.negativeSlope = True
             else:
                 if debug:
-                    print ("Switching from tracking pos to neg slope at " +str(self.tVector[i])
+                    print ("Switching from tracking pos to neg slope at " +str(self.secVector[i])
                            +" sec with deriv "+str(deriv))
                 self.negativeSlope = True
                 
@@ -288,21 +324,22 @@ class BlinkSensor:
             elif(self.positive == 1):
                 self.positive = 2
             else:
-                self.blinkEnd = self.tVector[i-2]
+                self.blinkEndSec = self.secVector[i-2]
                 self.blinkEndMinutes = self.minVector[i-2]
-                self.endIndex = i-2
                 self.endIR = self.IRVector[i-2]
                 if((self.peak-self.endIR) > self.PeakBlinkHeight and (self.peak-self.startIR) > self.PeakBlinkHeight):
                     if debug:
-                        print "Ending time is: " + str(self.blinkEnd)
-                    self.saveBlinks([[self.blinkStart, self.blinkEnd]],2)
+                        print "Ending time is: " + str(self.blinkEndSec)
+                    self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
                     self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
                     if debug:
-                        print "Blink from : " + str(self.blinkStart) + " sec to "+str(self.blinkEnd)+" sec"
-                    print "Length of blink: " + str(round((self.blinkEnd-self.blinkStart),2)) + " sec"
+                        print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
+                    print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),2)) + " sec"
                 else:
                     if debug:
-                        print "Peak ignored at " + str(self.tVector[i]) + " sec, height not large enough, inside elif(negativeSlope)"
+                        print ("Peak ignored at " + str(self.secVector[i]) + " sec, height of: "+
+                               str(self.peak-self.startIR) + "or "+str(self.peak-self.endIR) +
+                               " not large enough, inside elif(negativeSlope)")
 
                 self.clearParameters(i)
 
@@ -319,26 +356,25 @@ class BlinkSensor:
             #we've likely flattened out
             if(deriv < self.posSlopeThresh):
                 if debug:
-                    print "Nearing end of valley at "+str(self.tVector[i])+" sec"
+                    print "Nearing end of valley at "+str(self.secVector[i])+" sec"
                 self.positive = self.positive + 1
                 #If there's been a positive slope for n times, the blink is over
                 if(((self.positive > self.n) and (self.endIR - self.valley > self.ValleyBlinkHeight )and ((self.startIR - self.valley) > self.ValleyBlinkHeight))
                 or (((self.positive > self.n + 7) and (self.endIR - self.valley) > self.ValleyBlinkHeight) and ((self.startIR - self.valley) > self.ValleyBlinkHeight))):
-                    self.blinkEnd = self.tVector[i-2]
+                    self.blinkEndSec = self.secVector[i-2]
                     self.blinkEndMinutes = self.minVector[i-2]
-                    self.endIndex = i-2
                     self.endIR = self.IRVector[i-2]
                     if(self.negBlinkPoints >= self.n-1):
                         if debug:
-                            print "Ending time is: " + str(self.blinkEnd)
-                        self.saveBlinks([[self.blinkStart, self.blinkEnd]],2)
+                            print "Ending time is: " + str(self.blinkEndSec)
+                        self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
                         if debug:
-                            print "Blink from : " + str(self.blinkStart) + " sec to "+str(self.blinkEnd)+" sec"
-                        print "Length of blink: " + str(round((self.blinkEnd-self.blinkStart),2)) + " sec"
+                            print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
+                        print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),2)) + " sec"
                         self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
                     else:
                         if debug:
-                            print "Blink ignored since only "+str(self.negBlinkPoints)+" points in the negative slope. Time stamp: "+  str(self.tVector[i])
+                            print "Blink ignored since only "+str(self.negBlinkPoints)+" points in the negative slope. Time stamp: "+  str(self.secVector[i])
 
                     self.clearParameters(i)
 
@@ -357,25 +393,24 @@ class BlinkSensor:
             elif(self.negative == 1):
                 self.negative = 2
             else:
-                self.blinkEnd = self.tVector[i-2]
+                self.blinkEndSec = self.secVector[i-2]
                 self.blinkEndMinutes = self.minVector[i-2]
-                self.endIndex = i-2
                 self.endIR = self.IRVector[i-2]
                 if((self.endIR - self.valley) > self.ValleyBlinkHeight and (self.startIR - self.valley) > self.ValleyBlinkHeight):
                     if(self.negBlinkPoints >= self.n-1):
                         if debug:
-                            print "Ending time is: " + str(self.blinkEnd)
-                        self.saveBlinks([[self.blinkStart, self.blinkEnd]],2)
+                            print "Ending time is: " + str(self.blinkEndSec)
+                        self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
                         if debug:
-                            print "Blink from : " + str(self.blinkStart) + " sec to "+str(self.blinkEnd)+" sec"
-                        print "Length of blink: " + str(round((self.blinkEnd-self.blinkStart),2)) + " sec"
+                            print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
+                        print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),2)) + " sec"
                         self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
                     else:
                          if debug:
-                             print "Blink ignored since only "+str(self.negBlinkPoints)+" points in the negative slope. Time stamp: "+  str(self.tVector[i])
+                             print "Blink ignored since only "+str(self.negBlinkPoints)+" points in the negative slope. Time stamp: "+  str(self.secVector[i])
                 else:
                     if debug:
-                        print "Valley ignored at " + str(self.tVector[i]) + " sec, height not large enough"
+                        print "Valley ignored at " + str(self.secVector[i]) + " sec, height not large enough"
 
                 self.clearParameters(i)
 
@@ -543,57 +578,6 @@ class BlinkSensor:
                 return [Time, RawIR, Hour, Minute]
 
 
-"""
-I want to be taking the blink vector andwrite a function that Kat can use, that takes as input a time window, and the most recent blink value
-from the blink vector. It creates a subBlinkVector that is global or saved somehow, and tacks on blinks until.
-It checks each time if the first blink falls outside the window. If so, it removes it from the vector. I'll just send
-to Kat the number of times you've blinked in that window, so the output is just an integer.
 
-
-Maybe have a function to add to the blinkWindow vector, and then at the end of each loop call another function to make sure
-that the vector is up to date, and then print out the number of blinks.
-    
-"""
-
-
-
-
-# if __name__=='__main__':
-#     if(test):
-#         filename = ('2015-04-10NicoleBelowEye3.csv')
-#         BlinkSensor = BlinkSensor()
-#         BlinkSensor.filename = filename
-#         BlinkSensor.saveBlinks([],1)
-#         data = BlinkSensor.csv_reader(2)
-#         Hour = data[2]
-#         Minute = data[3]
-#         #Time here means seconds and microseconds
-#         Time = data[0]
-#         RawIR = data[1]
-#         for i in range(len(data[0])):
-#             BlinkSensor.minTestMode = (Hour[i]*60 + Minute[i] + Time[i]/60)
-#             BlinkSensor.timeTestMode = Time[i]
-#             BlinkSensor.Algorithm(RawIR[i],True)
-#         BlinkSensor.saveFile()
-#         BlinkSensor.csv_reader(1)
-#     else:
-#         filename = raw_input('Enter a file name:  ')
-#         timeDate = datetime.now().date()
-#         filename = (str(timeDate)+filename+'.csv')
-
-#         usb = Serial('/dev/cu.usbmodem621',57600)
-        
-#         BlinkSensor = BlinkSensor()
-#         BlinkSensor.filename = filename
-        
-#         initSerialConnection(usb,BlinkSensor)
-#         while True:
-#             try:
-#                 getSerial(usb, BlinkSensor)
-#             except KeyboardInterrupt:
-#                 BlinkSensor.saveFile()
-#                 BlinkSensor.csv_reader(1)
-#                 usb.close()
-#                 break
             
 
