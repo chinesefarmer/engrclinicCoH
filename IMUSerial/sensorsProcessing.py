@@ -9,10 +9,12 @@ import pylab as pl
 #import time
 
 from datetime import *
+import Spring_BlinkSensor
 
 #----------Global Variables for the IMU--------------------------------
 # Customizable Parameters
 avgSize = 30                    # Moving Average Filter Sample Size
+avgWeighting = 0.5
 pauseCheck = 0                                 # Debug code
 SAMPLE_LENGTH = 2500
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
@@ -24,6 +26,11 @@ calibrationNo = 100             # Number of iterations during calibration step
 trialNum = 0;
 nextR = 0; nextP = 0; nextY = 0; 
 gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+
+previousR = 0;
+previousP = 0;
+previousY = 0;
+previousTime = 0;
 #---------------------------------------------------------------------
 
 #--------Global Variables for the Blink Sensor--------------------------
@@ -38,7 +45,7 @@ tWindow = 1.0/3
 tPrintBlink = 1.0/6
 minutes = 0
 timeStamp = datetime.now().time()
-startTime = timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60
+startTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60)*60
 
 #Length of running average
 n=4
@@ -296,16 +303,6 @@ def detectTableYaw(angles, angleDist, totalTime):
     return [timeTarget/totalTime, operateAngle+minAngle]
     
 
-def calcGyroYaw(timeTot, gyro):
-    yawAngle = [0]
-    yawAngle.append(0)
-##    print gyroDriftY
-##    print len(timeTot)
-##    print len(gyro)
-    for i in range(1,len(gyro)-1):
-       yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
-
-    return yawAngle
 
 # Will return 0 if the function fails to receive readable data from serial and
 # will return 1 if the function succeeds
@@ -436,11 +433,11 @@ def calcRPYData(serialData):
 
     timeStamp = datetime.now().time()
     #Time elapsed from start
-    currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
+    currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - startTime
     #Saves the IMU data to a csv file
     data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
     csv_writer(data,filenameIMU)
-    return [roll, pitch, yaw,currTime]
+    return [roll, pitch, GyroY ,currTime]
 
 ##    # Stops program after a number of samples have been collected
 ##    # Should be replaced with interrupt by GUI
@@ -451,13 +448,49 @@ def calcRPYData(serialData):
 ##        break
 
 def processIMUData(IMUData):
-    [roll, pitch, yaw, currTime] = IMUData
-    rtSmoothFilter();
+    global previousR, previousP, previousY
+    [roll, pitch, gyroY, currTime] = IMUData
+    smoothRoll = rtSmoothFilter(previousR, roll);
+    smoothPitch = rtSmoothFilter(previousP, pitch);
+
+    yaw = calcGyroYaw(currTime,previousY,gyroY)
+    smoothYaw = rtSmoothFilter(previousY,yaw)
+
+    previousR = smoothRoll
+    previousP = smoothPitch
+    previousY = smoothYaw
+    previousTime = currTime
+
+    return [smoothRoll,smoothPitch,smoothYaw]
 
 
-# Real Time Smooth Filter
-def rtSmoothFilter():
-    return
+
+# Real Time Exponential Moving Average Filter
+def rtSmoothFilter(prevRPY,rpyData):
+    global avgWeighting            #Determines the size of the avg filter
+    smoothedData = rpyData*avgWeighting + (1-avgWeighting)*prevRPY
+    return smoothedData
+
+
+# #For Testing purposes
+# def appendData(IMUData):
+
+
+def calcGyroYaw(previousY, currTime, gyroY):
+    global previousTime, gyroDriftY
+
+    yawAngle = (((gyroY+gyroDriftY)*(currTime-previousTime)+previousY)*.998)
+
+    return yawAngle
+
+# Old Code
+# def calcGyroYaw(timeTot, gyro):
+#     yawAngle = [0]
+#     yawAngle.append(0)
+#     for i in range(1,len(gyro)-1):
+#        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
+
+#     return yawAngle
 
 
 
@@ -484,302 +517,13 @@ def initSerialConnection(usb):
     csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],filename)
     csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
 
-    
-'''BEN: Make sure to call this function and input the newest IR1 value from the serial data. This runs the algorithm''' 
-def blinkAlgorithm(IR1):
-    global minutes, IRVector, tVector, blinkVector, startTime, tPrintBlink
-    global negSlopeThresh, posSlopeThresh, error
-    global derivVector, n, trackPos, trackNeg, startIR, startIndex, endIndex, startT
-    global endT, endIR, peak, valley, blinkRange, negB, posB, positive, negative, runningAvg
-
-    timeD = datetime.now().time()
-    timeDate = datetime.now().date()
-    
-    tDif = abs(minutes - startTime - tPrintBlink)
-    if(tDif < 10**-2):
-        print ""
-        print "--------------------------------------------------"
-        print str(len(subBlink)) + " blinks in the last " + str(round(tWindow,1)) + " minutes"
-        print "--------------------------------------------------"
-        print ""
-        startTime = minutes
-## Error: Doens't Compile. Fcn doesnt exist
-
-#    UpdateBlinksInWindow()
-            
-    if(error == 1):
-        error = 0
-    else:
-        #Do some blink sensing stuff
-        IRVector.append(IR1)
-        minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
-        tVector.append(minutes)
-        if(len(IRVector) > 1):
-            i = len(IRVector)-1
-            
-            #2nd Error Division by Zero
-            #Take the derivative
-            deriv = (IRVector[i]-IRVector[i-1])/(tVector[i]-tVector[i-1])
-            derivVector.append(deriv)
-            
-            if(trackPos):
-                if debug:
-                    print "Tracking positive slope"
-                if(len(derivVector)<n):
-                    runningAvg = sum(derivVector)/len(derivVector)
-                else:
-                    runningAvg = sum(derivVector[i-(n-1):i+1])/n
-                
-                #This means it was a false alarm, I may need two positive thresholds
-                #I'm saying this isn't a blink if the running average falls below a threshold
-                #and the slope hasn't been within the threshold for n or more values
-                if(runningAvg < posSlopeThresh and len(derivVector) < n):
-                    blinkVector.extend([0]*(i-startIndex))
-                    if debug:
-                        print "False Positive Alarm w/ Deriv: " + str(deriv)
-                        print "Time = " + str(time[i])
-                    trackPos = False
-                    runningAvg = 0
-                    startT = 0
-                    startIndex = 0
-                    startIR = 0
-                    peak = 0
-                #Otherwise we might be part of the slope still
-                else:
-                    #If the IRVal is greater than the previous peak, this is now
-                    #considered the peak
-                    if(IRVector[i-1] > peak):
-                        peak = IRVector[i-1]
-                    #If at any point the running average is "flat", meaning the slope is
-                    #less than the positive threshold and greater than the negative one,
-                    #that likely means we're at the end of the blink
-                    if(deriv < 0):
-                        if(deriv > negSlopeThresh):
-                            negative = negative + 1
-                            if(negative > n):
-                                endT = tVector[i-2]
-                                endIndex = i-2
-                                endIR = IRVector[i-2]
-                                if(endIR == peak):
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                    if debug:
-                                        print "Bad"
-                                elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
-                                    if debug:
-                                        print "Ending time is: " + str(endT)
-                                        print "Ending deriv is " + str(deriv)
-                                    blinkRange.append([startT, endT])
-                                    blinkVector.extend(IRVector[startIndex:i+1])
-                                    if(len(blinkRange)>0):
-                                        AddBlinksInWindow(blinkRange[-1])
-                                    if debug:
-                                        print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
-                                    print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
-                                else:
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                     
-                                endT = 0
-                                endIndex = 0
-                                endIR = 0
-                                trackPos = False
-                                runningAvg = 0
-                                startT = 0
-                                startIR = 0
-                                peak = 0
-                                #Clearing out the vector a little
-                                derivVector = derivVector[i-(n-1):i+1]
-                                positive = 0
-                                negative = 0
-                                negB = False
-                            else:
-                                negB = True
-                        else:
-                            negB = True
-                            
-                    elif(negB):
-                        if(positive == 0):
-                            positive = 1
-                        elif(positive == 1):
-                            positive = 2
-                        else:
-                            endT = tVector[i-2]
-                            endIndex = i-2
-                            endIR = IRVector[i-2]
-                            if(endIR == peak):
-                                blinkVector.extend([0]*(i-startIndex+1))
-                            elif((peak-endIR) > 1000 and (peak-startIR) > 1000):
-                                if debug:
-                                    print "Ending time is: " + str(endT)
-                                blinkRange.append([startT, endT])
-                                blinkVector.extend(IRVector[startIndex:i+1])
-                                if(len(blinkRange)>0):
-                                        AddBlinksInWindow(blinkRange[-1])
-                                if debug:
-                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
-                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
-                            else:
-                                blinkVector.extend([0]*(i-startIndex+1))
-                            endT = 0
-                            endIndex = 0
-                            endIR = 0
-                            trackPos = False
-                            runningAvg = 0
-                            startT = 0
-                            peak = 0
-                            #Clearing out the vector a little
-                            derivVector = derivVector[i-(n-1):i+1]
-                            negB = False
-                            positive = 0
-                    
-            elif(trackNeg):
-                if debug:
-                    print "Tracking negative slope w/ deriv: " + str(deriv)
-                if(len(derivVector)<n):
-                    runningAvg = sum(derivVector)/len(derivVector)
-                else:
-                    runningAvg = sum(derivVector[i-(n-1):i+1])/n
-                if debug:    
-                    print "Running Average: " + str(runningAvg)
-                
-                #This means it was a false alarm, I may need two positive thresholds
-                #I'm saying this isn't a blink if the running average falls below a threshold
-                #and the slope hasn't been within the threshold for n or more values
-                if(runningAvg > negSlopeThresh and len(derivVector) < n):
-                    if debug:
-                        print "False Negative Alarm w/ Deriv: " + str(deriv)
-                        print "Time = " + str(time[i])
-                    trackNeg = False
-                    runningAvg = 0
-                    startT = 0
-                    startIndex = 0
-                    startIR = 0
-                    valley = 0
-                #Otherwise we might be part of the slope still
-                else:
-                    #If the IRVal is greater than the previous peak, this is now
-                    #considered the peak
-                    if(IRVector[i-1] < valley):
-                        valley = IRVector[i-1]
-                    #We're coming up from the valley
-                    if(deriv > 0):
-                        #If the derivative is less than the positive threshold, that means
-                        #we've likely flattened out
-                        if(deriv < posSlopeThresh):
-                            positive = positive + 1
-                            #If there's been a positive slope for n times, the blink is over
-                            if(positive > n):
-                                endT = tVector[i-2]
-                                endIndex = i-2
-                                endIR = IRVector[i-2]
-                                if(endIR == valley):
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
-                                    if debug:
-                                        print "Ending time is: " + str(endT)
-                                    blinkRange.append([startT, endT])
-                                    if debug:
-                                        print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
-                                    print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
-                                    blinkVector.extend(IRVector[startIndex:i+1])
-                                    if(len(blinkRange)>0):
-                                        AddBlinksInWindow(blinkRange[-1])
-                                else:
-                                    blinkVector.extend([0]*(i-startIndex+1))
-                                trackNeg = False
-                                runningAvg = 0
-                                startT = 0
-                                endT = 0
-                                endIndex = 0
-                                endIR = 0
-                                valley = 0
-                                positive = 0
-                                #Clearing out the vector a little
-                                derivVector = derivVector[i-(n-1):i+1]
-                                posB = False
-                                negative = 0
-                            #Otherwise note that we have a positive slope right now
-                            else:
-                                posB = True
-                        else:
-                            posB = True
-                    #If the slope is negtaive after we've been coming out of the valley, that
-                    #means the blink is over
-                    elif(posB):
-                        #Just in case I'll wait one round to be sure
-                        if(negative == 0):
-                            negative = 1
-                        elif(negative == 1):
-                            negative = 2
-                        else:
-                            endT = tVector[i-2]
-                            endIndex = i-2
-                            endIR = IRVector[i-2]
-                            if(endIR == valley):
-                                blinkVector.extend([0]*(i-startIndex+1))
-                            elif((endIR - valley) > 1000 and (startIR - valley) > 1000):
-                                if debug:
-                                    print "Ending time is: " + str(endT)
-                                blinkRange.append([startT, endT])
-                                blinkVector.extend(IRVector[startIndex:i+1])
-                                if debug:
-                                    print "Blink from : " + str(startT) + " minutes to "+str(endT)+" minutes"
-                                print "Length of blink: " + str(round((endT-startT)*60,2)) + " sec"
-                                if(len(blinkRange)>0):
-                                        AddBlinksInWindow(blinkRange[-1])
-                            else:
-                                blinkVector.extend([0]*(i-startIndex+1))
-                            trackNeg = False
-                            runningAvg = 0
-                            startT = 0
-                            valley = 0
-                            endT = 0
-                            endIndex = 0
-                            endIR = 0
-                            #Clearing out the vector a little
-                            derivVector = derivVector[i-(n-1):i+1]
-                            posB = False
-                            negative = 0
-
-            #This runs the first time through since we haven't checked the
-            #slopes yet
-            else:
-                #May be dealing with a peak
-                if(deriv >= posSlopeThresh):
-                    #start tracking the slope!
-                    if debug:
-                        print "Looking for peak at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
-                    trackPos = True
-                    startT = tVector[i-1]
-                    startIndex = i-1
-                    startIR = IRVector[i-1]
-                    peak = IRVector[i-1]
-                #May be dealing with a valley
-                elif(deriv <= negSlopeThresh):
-                    if debug:
-                        print "Looking for valley at time: " + str(tVector[i-1]) + "after deriv: " + str(deriv)
-                    trackNeg = True
-                    startT = tVector[i-1]
-                    startIR = IRVector[i-1]
-                    startIndex = i-1
-                    valley = IRVector[i-1]
-                else:
-                    startT = 0
-                    startIndex = 0
-                    startIR = 0
-                    peak = 0
-                    valley = 0
-                    blinkVector.append(0)
-        data = ["%s:%s:%s" %(timeDate.year, timeDate.day, timeDate.month),
-                "%s:%s:%s" % (timeD.hour,timeD.minute,(timeD.second + 0.000001*timeD.microsecond)),
-                (timeD.second + 0.000001*timeD.microsecond) ,IR1]
-        global filename
-        csv_writer(data,filename)
-
-
-
 
 #------------------------Main Function-----------------------------------
 
+
+
+
+# serialData = [isSuccess,[IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
 
 if __name__=='__main__':
 
@@ -804,8 +548,8 @@ if __name__=='__main__':
             if(serialData[0] == 1):
                 #[roll, pitch, yaw, currTime]
                 IMUData = calcRPYData(serialData[1])
-                processIMUData(IMUData)
-
+                processedData = processIMUData(IMUData)
+                # appendData(processedData)
 
 
 #                print (serialData[1])[0]
