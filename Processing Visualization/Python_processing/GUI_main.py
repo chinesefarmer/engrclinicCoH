@@ -51,21 +51,25 @@ class MainFrame(wx.Frame):
 		self.Panel2 = BlinkPanel(self)
 		self.Panel3 = CameraPanel(self)
 		self.Panel4 = GraphPanel(self)
-		#self.graphBlink = GraphPanel(self)
+		#self.Panel4 = BoundControlBox(self, -1, "X min", 0)
+
 
 		#resize them
 		sizerH = wx.BoxSizer(wx.HORIZONTAL)
 		sizerV = wx.BoxSizer(wx.VERTICAL)
 		#
+		
 		sizerH.Add(self.Panel1, 1, wx.EXPAND)
 		sizerH.AddSpacer(5,5)
-		sizerH.Add(self.Panel2, 0, wx.EXPAND)
+		
+		sizerH.Add(self.Panel2, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		
 		sizerH.AddSpacer(5,5)
 		sizerH.Add(self.Panel3, 0, wx.EXPAND)
-		#sizer.Add(self.graphBlink, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-		sizerV.Add(self.Panel4, 1, wx.EXPAND)
+	
+		sizerV.Add(self.Panel4, 0, wx.EXPAND)
+		
 		sizerV.Add(sizerH, 1, wx.ALL|wx.EXPAND, 5)
-
 		self.SetSizerAndFit(sizerV)
 		#self.Fit()
 		# Setting up the menu bar
@@ -233,8 +237,9 @@ class BlinkPanel(wx.Panel):
 		MsgBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
 
 		sizerH = wx.BoxSizer(wx.VERTICAL)
-		sizerH.Add(StopBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
-		sizerH.Add(MsgBtn, 0, wx.ALIGN_RIGHT|wx.ALL, 5)
+		sizerH.Add(StopBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
+		sizerH.AddSpacer(5,5)
+		sizerH.Add(MsgBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
 
 		sizer2 = wx.BoxSizer(wx.VERTICAL)
 		self.SetSizerAndFit(sizerH)
@@ -251,7 +256,6 @@ class BlinkPanel(wx.Panel):
 class GraphPanel(wx.Panel):
 	""" The graphing frames frame of the application
 	"""
-	title = 'Demo: dynamic matplotlib graph'
 	
 	def __init__(self, parent):
 		wx.Panel.__init__(self,parent)
@@ -260,6 +264,7 @@ class GraphPanel(wx.Panel):
 		#Remember, this comes in the form [IR1, IR2, IR3, light]
 		self.datagen = genIRserialData()
 		self.data = self.datagen.next()
+		print "meow", self.data
 		#self.data = IRdataGen()
 		#**************************
 		self.time = [datetime.datetime.now().time()]
@@ -267,6 +272,7 @@ class GraphPanel(wx.Panel):
 		self.lightAvg = 0
 		self.light = [self.data[3]]
 		self.blink = []
+
 		self.glance = []
 		self.average = 0
 		self.avg3 = 0
@@ -281,10 +287,11 @@ class GraphPanel(wx.Panel):
 		#self.create_menu()
 		#self.create_status_bar()
 		self.create_main_panel()
+		print "hey", self.data
 		
-		#self.redraw_timer = wx.Timer(self)
-		#self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-		#self.redraw_timer.Start(REFRESH_INTERVAL_MS)
+		self.redraw_timer = wx.Timer(self)
+		self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
+		self.redraw_timer.Start(1) #refresh rate in ms
 
 	def create_menu(self):
 		savePlotBtn =  wx.Button(self, label="Save plot to file")
@@ -295,32 +302,33 @@ class GraphPanel(wx.Panel):
 
 
 	def create_main_panel(self):
-		self.panel = wx.Panel(self)
+		#self.panel = wx.Panel(self)
 
 		self.init_plot()
-		self.canvas = FigCanvas(self.panel, -1, self.fig)
-
-		self.xmin_control = BoundControlBox(self.panel, -1, "X min", 0)
-		self.xmax_control = BoundControlBox(self.panel, -1, "X max", 50)
-		self.ymin_control = BoundControlBox(self.panel, -1, "Y min", 0)
-		self.ymax_control = BoundControlBox(self.panel, -1, "Y max", 100)
 		
-		self.pause_button = wx.Button(self.panel, -1, "Pause")
+		self.canvas = FigCanvas(self, -1, self.fig)
+
+		self.xmin_control = BoundControlBox(self, -1, "X min", 0)
+		self.xmax_control = BoundControlBox(self, -1, "X max", 50)
+		self.ymin_control = BoundControlBox(self, -1, "Y min", 0)
+		self.ymax_control = BoundControlBox(self, -1, "Y max", 100)
+		
+		self.pause_button = wx.Button(self, -1, "Pause")
 		self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
 		self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
-		self.calibrate_button = wx.Button(self.panel, -1, "Calibrate")
+		self.calibrate_button = wx.Button(self, -1, "Calibrate")
 		self.Bind(wx.EVT_BUTTON, self.on_calibrate_button, self.calibrate_button)
 		
-		self.cb_grid = wx.CheckBox(self.panel, -1, 
-			"Show Grid",
-			style=wx.ALIGN_RIGHT)
+		self.cb_grid = wx.CheckBox(self, -1, 
+		    "Show Grid",
+		    style=wx.ALIGN_RIGHT)
 		self.Bind(wx.EVT_CHECKBOX, self.on_cb_grid, self.cb_grid)
 		self.cb_grid.SetValue(True)
 		
-		self.cb_xlab = wx.CheckBox(self.panel, -1, 
-			"Show X labels",
-			style=wx.ALIGN_RIGHT)
+		self.cb_xlab = wx.CheckBox(self, -1, 
+		    "Show X labels",
+		    style=wx.ALIGN_RIGHT)
 		self.Bind(wx.EVT_CHECKBOX, self.on_cb_xlab, self.cb_xlab)        
 		self.cb_xlab.SetValue(True)
 		
@@ -345,9 +353,9 @@ class GraphPanel(wx.Panel):
 		self.vbox.Add(self.hbox1, 0, flag=wx.ALIGN_LEFT | wx.TOP)
 		self.vbox.Add(self.hbox2, 0, flag=wx.ALIGN_LEFT | wx.TOP)
 		
-		self.panel.SetSizer(self.vbox)
+		self.SetSizer(self.vbox)
 		self.vbox.Fit(self)
-	
+
 	def create_status_bar(self):
 		self.statusbar = self.CreateStatusBar()
 
@@ -370,7 +378,7 @@ class GraphPanel(wx.Panel):
 		# plot the data as a line series, and save the reference 
 		# to the plotted line series
 		#
-		print(self.data)
+		print "init", self.data
 		#White = IR1
 		self.plot_IR1 = self.axes.plot(
 			self.IR1, 
@@ -401,6 +409,7 @@ class GraphPanel(wx.Panel):
 		# sliding window effect. therefore, xmin is assigned after
 		# xmax.
 		#
+		print(self.data)
 		if self.xmax_control.is_auto():
 			xmax = len(self.IR1) if len(self.IR1) > 50 else 50
 		else:
@@ -497,6 +506,64 @@ class GraphPanel(wx.Panel):
 			path = dlg.GetPath()
 			self.canvas.print_figure(path, dpi=self.dpi)
 			self.flash_status_message("Saved to %s" % path)
+
+	def on_redraw_timer(self, event):
+	    # if paused do not add data, but still redraw the plot
+	    # (to respond to scale modifications, grid change, etc.)
+	    #
+	    if not self.paused:
+	        self.dataAppend = self.datagen.next()
+	        IR1Append = self.dataAppend[0]
+	        LightAppend = self.dataAppend[3]
+	        self.IR1.append(IR1Append)
+	        self.time.append(datetime.datetime.now().time())
+	        #Running average of previous three light values
+	        if self.safe == True:
+	            if self.avg3Idx < 3:
+	                self.avg3 = self.avg3 + self.light[-1]
+	                self.avg3Idx = self.avg3Idx + 1
+	                self.safe == True
+	            elif self.avg3Idx == 3:
+	                self.avg3_cur = (self.avg3 + self.light[-1])/3.0
+	                self.avg3Idx = 1
+	                self.avg3 = 0
+	                self.safe == True
+
+	            #If the current light value is greater than +- 1 from the avg
+	            if (LightAppend > self.avg3_cur + 2) or (LightAppend < self.avg3_cur - 2):
+	                self.glance.append(250)
+	            else:
+	                self.glance.append(180)
+	        else:
+	            self.glance.append(180)
+	                
+	            
+	        #Now add the current light value
+	        self.light.append(LightAppend)
+	        
+	        
+	        #If we calibrate, average 10 data points
+	        if self.calibrate:
+	            #If we're recalibrating, reset the average to 0
+	            if self.calibrateIdx == 1:
+	                self.average = 0
+	            if self.calibrateIdx < 10:
+	                self.average = self.average + IR1Append
+	                self.calibrateIdx = self.calibrateIdx + 1
+	            else:
+	                self.average = self.average/10.0
+	                self.calibrate = False
+	                self.calibrateIdx = 1
+	            #While calibrating blink will be 0
+	            self.blink.append(0)
+	            self.safe = True
+	        else:
+	            #If IR1 is twice the calibrated baseline, it's likely a blink
+	            if IR1Append > self.average + 1000:
+	                blinkData = self.average + 1000
+	            else:
+	                blinkData = self.average
+	            self.blink.append(blinkData) 
 		
 ################################################################################
 class BoundControlBox(wx.Panel):
