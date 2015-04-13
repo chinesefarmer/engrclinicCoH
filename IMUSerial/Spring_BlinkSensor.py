@@ -75,7 +75,7 @@ class BlinkSensor:
         #Any derivatives above/below these values are considered part of a blink
         self.negSlopeThresh = -6000
         self.posSlopeThresh = 13000
-        self.PeakBlinkHeight = 500
+        self.PeakBlinkHeight = 430
         self.ValleyBlinkHeight = 1000
 
         self.filename = ''
@@ -302,7 +302,9 @@ class BlinkSensor:
                     print "Length of blink: " + str(round((self.blinkEnd-self.blinkStart),2)) + " sec"
                 else:
                     if debug:
-                        print "Peak ignored at " + str(self.tVector[i]) + " sec, height not large enough, inside elif(negativeSlope)"
+                        print ("Peak ignored at " + str(self.tVector[i]) + " sec, height of: "+
+                               str(self.peak-self.startIR) + "or "+str(self.peak-self.endIR) +
+                               " not large enough, inside elif(negativeSlope)")
 
                 self.clearParameters(i)
 
@@ -543,57 +545,6 @@ class BlinkSensor:
                 return [Time, RawIR, Hour, Minute]
 
 
-"""
-I want to be taking the blink vector andwrite a function that Kat can use, that takes as input a time window, and the most recent blink value
-from the blink vector. It creates a subBlinkVector that is global or saved somehow, and tacks on blinks until.
-It checks each time if the first blink falls outside the window. If so, it removes it from the vector. I'll just send
-to Kat the number of times you've blinked in that window, so the output is just an integer.
 
-
-Maybe have a function to add to the blinkWindow vector, and then at the end of each loop call another function to make sure
-that the vector is up to date, and then print out the number of blinks.
-    
-"""
-
-
-
-
-# if __name__=='__main__':
-#     if(test):
-#         filename = ('2015-04-10NicoleBelowEye3.csv')
-#         BlinkSensor = BlinkSensor()
-#         BlinkSensor.filename = filename
-#         BlinkSensor.saveBlinks([],1)
-#         data = BlinkSensor.csv_reader(2)
-#         Hour = data[2]
-#         Minute = data[3]
-#         #Time here means seconds and microseconds
-#         Time = data[0]
-#         RawIR = data[1]
-#         for i in range(len(data[0])):
-#             BlinkSensor.minTestMode = (Hour[i]*60 + Minute[i] + Time[i]/60)
-#             BlinkSensor.timeTestMode = Time[i]
-#             BlinkSensor.Algorithm(RawIR[i],True)
-#         BlinkSensor.saveFile()
-#         BlinkSensor.csv_reader(1)
-#     else:
-#         filename = raw_input('Enter a file name:  ')
-#         timeDate = datetime.now().date()
-#         filename = (str(timeDate)+filename+'.csv')
-
-#         usb = Serial('/dev/cu.usbmodem621',57600)
-        
-#         BlinkSensor = BlinkSensor()
-#         BlinkSensor.filename = filename
-        
-#         initSerialConnection(usb,BlinkSensor)
-#         while True:
-#             try:
-#                 getSerial(usb, BlinkSensor)
-#             except KeyboardInterrupt:
-#                 BlinkSensor.saveFile()
-#                 BlinkSensor.csv_reader(1)
-#                 usb.close()
-#                 break
             
 
