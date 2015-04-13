@@ -9,14 +9,28 @@ import pylab as pl
 #import time
 
 from datetime import *
+import Spring_BlinkSensor
 
 #----------Global Variables for the IMU--------------------------------
+# Customizable Parameters
 avgSize = 30                    # Moving Average Filter Sample Size
+avgWeighting = 0.5
 pauseCheck = 0                                 # Debug code
 SAMPLE_LENGTH = 2500
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
 ACCEPTABLE_YAW_RANGE = 3
 MAX_OP_INCLINE = 0
+calibrationNo = 100             # Number of iterations during calibration step
+
+# Required for some functions
+trialNum = 0;
+nextR = 0; nextP = 0; nextY = 0; 
+gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+
+previousR = 0;
+previousP = 0;
+previousY = 0;
+previousTime = 0;
 #---------------------------------------------------------------------
 
 #--------Global Variables for the Blink Sensor--------------------------
@@ -31,7 +45,7 @@ tWindow = 1.0/3
 tPrintBlink = 1.0/6
 minutes = 0
 timeStamp = datetime.now().time()
-startTime = timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60
+startTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60)*60
 
 #Length of running average
 n=4
@@ -218,12 +232,13 @@ def timeAtAngle(time,angle):
     minAngle = int(min(angle))
     
     # Array of zeros with a fixed size equal to the total number of whole number angles
-    angleTimes = np.zeros(int(max(angle))-minAngle)
+    angleTimes = np.zeros(int(max(angle))-minAngle + 1)
     timeAtAng = []
 
     # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
     for i in range(len(angle)-1):
-        angleTimes[int(angle[i])-minAngle - 1] += avgTimeStep
+        currentAngle = int(angle[i])- minAngle
+        angleTimes[currentAngle] += avgTimeStep
     # Creates a list of angle values that corresponds to the times above
     angleList = [x+minAngle for x in range(len(angleTimes))]
 
@@ -288,215 +303,231 @@ def detectTableYaw(angles, angleDist, totalTime):
     return [timeTarget/totalTime, operateAngle+minAngle]
     
 
-def calcGyroYaw(timeTot, gyro):
-    yawAngle = [0]
-    yawAngle.append(0)
-##    print gyroDriftY
-##    print len(timeTot)
-##    print len(gyro)
-    for i in range(1,len(gyro)-1):
-       yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
+
+# Will return 0 if the function fails to receive readable data from serial and
+# will return 1 if the function succeeds
+def receiveSerial():
+
+    serialData = []
+    #It also works if you just read the line instead of using a legit buffer
+    buffer = usb.readline()
+    #buffer = buffer + usb.read(usb.inWaiting())
+    #raw_input("Press enter to continue...")
+        
+    if '\n' in buffer:
+        lines = buffer.split('\n')
+        last_received_full = lines[-2]
+
+        if '\t' in last_received_full:
+            last_received_tabbed = last_received_full.split('\t')
+
+            # Will try to save data from buffer to variables.
+            # Otherwise will start to the loop over again
+            # Prevents indexing errors caused by too few values in the buffer
+            try:
+                GyroZ1 = last_received_tabbed[9]         #Keep this line at the end
+            except IndexError:
+                return [0, serialData]
+
+            # Makes the string an actual float value
+            if '\r' in GyroZ1:
+                GyroZBogus = GyroZ1.split('\r')
+                GyroZ = GyroZBogus[0]
+            else:
+                GyroZ = GyroZ1
+
+
+            # Will try to save data from buffer to variables.
+            # Otherwise will start to the loop over again
+            # Prevents Value errors caused by non-float buffer values
+            try:
+                IR = float(last_received_tabbed[0])
+                AcclX = float(last_received_tabbed[1])        
+                AcclY = float(last_received_tabbed[2])
+                AcclZ = float(last_received_tabbed[3])
+                MagX = float(last_received_tabbed[4])       
+                MagY = float(last_received_tabbed[5])
+                MagZ = float(last_received_tabbed[6])
+                GyroX = float(last_received_tabbed[7])        
+                GyroY = float(last_received_tabbed[8])
+                GyroZ = float(GyroZ)
+                roll = 0
+                pitch = 0
+                yaw = 0
+                serialData = [IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
+                return [1, serialData]
+            except ValueError:
+                return [0, serialData]
+    return [0, serialData]
+
+
+def calcRPYData(serialData):
+    [IR1,AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw] = serialData
+    #Initialize variables for requried roll, pitch, yaw calculations
+    global trialNum, nextR, nextP, nextY, gyroDriftX, gyroDriftY, gyroDriftZ
+    global calibrationNo
+    global last_received
+    global startTime
+    # Calibration Sequence: Accounts for drift of gyro data
+    # During calibration, the IMU must be placed on a stationary
+    # surface
+    if (trialNum < 5):
+        trialNum = trialNum + 1
+    elif(trialNum < calibrationNo - 1):
+        trialNum = trialNum + 1
+        gyroDriftX = gyroDriftX - GyroX
+        gyroDriftY = gyroDriftY - GyroY
+        gyroDriftZ = gyroDriftZ - GyroZ
+
+    elif(trialNum == calibrationNo - 1):
+        trialNum = trialNum + 1
+        gyroDriftX = gyroDriftX / calibrationNo
+        gyroDriftY = gyroDriftY / calibrationNo
+        gyroDriftZ = gyroDriftZ / calibrationNo
+    # Calibration Sequence completed
+    else:
+
+        #Pause initiated to allow users to secure the IMU on user's head
+        global pauseCheck
+        if(pauseCheck == 0):
+            pauseCheck = 1
+            #Should be replaced with GUI interrupt that triggers when
+            #the IMU is secured
+            raw_input("Please put on Headset, then press enter:")
+  
+        trialNum = trialNum + 1
+
+        roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
+        pitch = 0
+        # Calculates the pitch while accounting for edge cases
+        if(AcclZ*sin(roll) + AcclY*cos(roll) == 0):
+            if(AcclX > 0):
+                pitch = pi/2
+            else:
+                pitch = -1*pi/2
+        else:
+            pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
+
+        yawY = MagY*sin(roll) - MagZ*cos(roll)
+        yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
+
+        yawOffset = 0
+        
+        yaw = atan2(yawY, yawX)
+        
+        gX = abs(GyroX + gyroDriftX)
+        gY = abs(GyroY + gyroDriftY)
+        gZ = abs(GyroZ + gyroDriftZ)
+
+        prevR = nextR
+        prevP = nextP
+        prevY = nextY
+
+        nextR = (prevR + roll*gX) / (1 + gX)
+        nextP = (prevP + pitch * gZ) / (1 + gZ)
+        nextY = (prevY + yaw * gY) / (1 + gY)
+
+        roll = nextR*180/pi
+        pitch = -1*nextP*180/pi
+        yaw = abs(nextY*180/pi)
+
+    timeStamp = datetime.now().time()
+    #Time elapsed from start
+    currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - startTime
+    #Saves the IMU data to a csv file
+    data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
+    csv_writer(data,filenameIMU)
+    return [roll, pitch, GyroY ,currTime]
+
+##    # Stops program after a number of samples have been collected
+##    # Should be replaced with interrupt by GUI
+##    global SAMPLE_LENGTH
+##    if(trialNum >= SAMPLE_LENGTH):
+##        # Plots the RPY data
+##        csv_reader(filenameIMU)
+##        break
+
+def processIMUData(IMUData):
+    global previousR, previousP, previousY
+    [roll, pitch, gyroY, currTime] = IMUData
+    smoothRoll = rtSmoothFilter(previousR, roll);
+    smoothPitch = rtSmoothFilter(previousP, pitch);
+
+    yaw = calcGyroYaw(currTime,previousY,gyroY)
+    smoothYaw = rtSmoothFilter(previousY,yaw)
+
+    previousR = smoothRoll
+    previousP = smoothPitch
+    previousY = smoothYaw
+    previousTime = currTime
+
+    return [smoothRoll,smoothPitch,smoothYaw]
+
+
+
+# Real Time Exponential Moving Average Filter
+def rtSmoothFilter(prevRPY,rpyData):
+    global avgWeighting            #Determines the size of the avg filter
+    smoothedData = rpyData*avgWeighting + (1-avgWeighting)*prevRPY
+    return smoothedData
+
+
+# #For Testing purposes
+# def appendData(IMUData):
+
+
+def calcGyroYaw(previousY, currTime, gyroY):
+    global previousTime, gyroDriftY
+
+    yawAngle = (((gyroY+gyroDriftY)*(currTime-previousTime)+previousY)*.998)
 
     return yawAngle
 
+# Old Code
+# def calcGyroYaw(timeTot, gyro):
+#     yawAngle = [0]
+#     yawAngle.append(0)
+#     for i in range(1,len(gyro)-1):
+#        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
 
-#Set port and baudRate when calling this function
-def receiving(port, baudRate):
-    #Initialize variables for roll, pitch, yaw calculations
-    global gyroDriftY
-    roll = 0; pitch = 0; yaw = 0; n = 0; nextR = 0; nextP = 0; nextY = 0; prevR = 0;
-    prevP = 0; prevY = 0; gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
-    acclXCal = 0; acclYCal = 0; acclZCal = 0
-    
-    #Other important variables
-    frequencyLoop = 5
-    global calibrationNo
-    calibrationNo = 100             # Number of iterations during calibration step
-    usb = Serial(port, baudRate)
-    usb.timeout = 1
-    global last_received
-    buffer = ''
-    error = 0
-    # Writes the first line of csv file
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
-    global startTime
-    
-    while True:
-
-        #It also works if you just read the line instead of using a legit buffer
-        buffer = usb.readline()
-        #buffer = buffer + usb.read(usb.inWaiting())
-        #raw_input("Press enter to continue...")
-            
-        if '\n' in buffer:
-            lines = buffer.split('\n')
-            last_received_full = lines[-2]
-
-            if '\t' in last_received_full:
-                last_received_tabbed = last_received_full.split('\t')
-
-                # Will try to save data from buffer to variables.
-                # Otherwise will start to the loop over again
-                # Prevents indexing errors caused by too few values in the buffer
-                try:
-                    GyroZ1 = last_received_tabbed[8]         #Keep this line at the end
-                except IndexError:
-                    continue
-
-                # Makes the string an actual float value
-                if '\r' in GyroZ1:
-                    GyroZBogus = GyroZ1.split('\r')
-                    GyroZ = GyroZBogus[0]
-                else:
-                    GyroZ = GyroZ1
-
-                # Will try to save data from buffer to variables.
-                # Otherwise will start to the loop over again
-                # Prevents Value errors caused by non-float buffer values
-                try:
-                    AcclX = float(last_received_tabbed[0])        
-                    AcclY = float(last_received_tabbed[1])
-                    AcclZ = float(last_received_tabbed[2])
-                    MagX = float(last_received_tabbed[3])       
-                    MagY = float(last_received_tabbed[4])
-                    MagZ = float(last_received_tabbed[5])
-                    GyroX = float(last_received_tabbed[6])        
-                    GyroY = float(last_received_tabbed[7])
-                    GyroZ = float(GyroZ)
-                except ValueError:
-                    continue
-
-                # Calibration Sequence: Accounts for drift of gyro data
-                # During calibration, the IMU must be placed on a stationary
-                # surface
-                if (n < 5):
-                    n = n + 1
-                elif(n < calibrationNo - 1):
-                    n = n + 1
-                    gyroDriftX = gyroDriftX - GyroX
-                    gyroDriftY = gyroDriftY - GyroY
-                    gyroDriftZ = gyroDriftZ - GyroZ
-
-                elif(n == calibrationNo - 1):
-                    n = n + 1
-                    gyroDriftX = gyroDriftX / calibrationNo
-                    gyroDriftY = gyroDriftY / calibrationNo
-                    gyroDriftZ = gyroDriftZ / calibrationNo
-                # Calibration Sequence completed
-                else:
-
-                    #Pause initiated to allow users to secure the IMU on user's head
-                    global pauseCheck
-                    if(pauseCheck == 0):
-                        pauseCheck = 1
-                        #Should be replaced with GUI interrupt that triggers when
-                        #the IMU is secured
-                        raw_input("Please put on Headset, then press enter:")
-              
-                    n = n + 1
-
-                    roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
-
-                    # Calculates the pitch while accounting for edge cases
-                    if(AcclZ*sin(roll) + AcclY*cos(roll) == 0):
-                        if(AcclX > 0):
-                            pitch = pi/2
-                        else:
-                            pitch = -1*pi/2
-                    else:
-                        pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
-
-                    yawY = MagY*sin(roll) - MagZ*cos(roll)
-                    yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
-
-                    yawOffset = 0
-                    
-                    yaw = atan2(yawY, yawX)
-                    
-                    gX = abs(GyroX + gyroDriftX)
-                    gY = abs(GyroY + gyroDriftY)
-                    gZ = abs(GyroZ + gyroDriftZ)
-
-                    prevR = nextR
-                    prevP = nextP
-                    prevY = nextY
-
-                    nextR = (prevR + roll*gX) / (1 + gX)
-                    nextP = (prevP + pitch * gZ) / (1 + gZ)
-                    nextY = (prevY + yaw * gY) / (1 + gY)
-
-                    roll = nextR*180/pi
-                    pitch = -1*nextP*180/pi
-                    yaw = abs(nextY*180/pi)
-
-                timeStamp = datetime.now().time()
-                #Time elapsed from start
-                currTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60) - startTime
-                #Saves the IMU data to a csv file
-                data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-                csv_writer(data,filenameIMU)
-
-                # Stops program after a number of samples have been collected
-                # Should be replaced with interrupt by GUI
-                global SAMPLE_LENGTH
-                if(n >= SAMPLE_LENGTH):
-                    # Plots the RPY data
-                    csv_reader(filenameIMU)
-                    break
+#     return yawAngle
 
 
 
-##                AcclXTot.append(AcclX);
-##                if(n == 200):
-##                    print len(AcclXTot)
-##                    numSamples = np.linspace(1,200,200)
-##                    print len(numSamples)
-##                    print AcclXTot
-##                    print numSamples
-##                
-##                    pl.plot(numSamples, AcclX)
-##                    pl.show()
 
-##                print "-----------------------------------------" 
-##                print "Accl \t\t Mag \t\t Gyro"
-##                print "X: " + str(AcclX) + "  \tX: " + str(MagX) + "\tX: " + str(GyroX)
-##                print "Y: " + str(AcclY) + "  \tY: " + str(MagY) + "  \tY: " + str(GyroY)
-##                print "Z: " + str(AcclZ) + "  \tZ: " + str(MagZ) + "  \tZ: " + str(GyroZ) + "\n"
-##                print "Roll: " + str(roll) + "  \tPitch: " + str(pitch) + "  \tYaw: " + str(yaw)
-##                print "Sample Number is: " + str(n)
-##                print "-----------------------------------------"
-##                print " "
-
-
-
-            #buffer = lines[-1]
                 
 #------------------------Blink Sensor Functions--------------------------
 '''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
 It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
 I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
 #Set port and baudRate when calling this function
-def initSerialConnection(usb,nameOfFile):
+def initSerialConnection(usb):
     usb.timeout = 1
     
     #This hopefully resets the Arduino
     usb.setDTR(False)
-    time.sleep(1)
+    #Was breaking
+    #time.sleep(1)
     usb.flushInput()
     usb.setDTR(True)
     
     buffer = ''
-    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],nameOfFile)
 
-
-
+    #Writes the first line of both files
+    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],filename)
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
 
 
 #------------------------Main Function-----------------------------------
 
 
+
+
+# serialData = [isSuccess,[IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
+
 if __name__=='__main__':
 
+    global filename,filenameIMU,outputFile
     #Writes the raw data for the blink sensor
     filename = raw_input('Enter a file name:  ')+ ".csv"
     #Writes the raw data for the IMU
@@ -504,16 +535,31 @@ if __name__=='__main__':
     #Reads the data to process for the blink sensor
     outputFile = (filename[:-4] + 'Full.csv' )
 
-    usb = receiving('COM6',57600)
-    initSerialConnection(usb,outputFile)
+    usb = Serial('COM6', 57600)
+    initSerialConnection(usb)
     '''BEN: This is the loop I'm using right now to keep getting serial data and 
     then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''
     while True:
         try:
-            getSerial(usb)
+            serialData = receiveSerial()
+            #Ensures that no errors are in the serialData array
+            #serialData[0] == 1 means that there were no failures
+            #serialData[0] == 0 means there was at least one failure
+            if(serialData[0] == 1):
+                #[roll, pitch, yaw, currTime]
+                IMUData = calcRPYData(serialData[1])
+                processedData = processIMUData(IMUData)
+                # appendData(processedData)
+
+
+#                print (serialData[1])[0]
+#                blinkAlgorithm((serialData[1])[0])
+
+            # getSerial(usb)
         except KeyboardInterrupt:
-            saveFile(usb)
-            csv_reader(outputFile)
+            csv_reader(filenameIMU)
+            # saveFile(usb)
+            # csv_reader(outputFile)
             break
             
 

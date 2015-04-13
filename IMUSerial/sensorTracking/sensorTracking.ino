@@ -275,7 +275,27 @@ void setup(void)
 */
 /**************************************************************************/
 void loop(void) 
-{  
+{
+  int i=0;
+  IR1 = 0;
+
+  while (i < samples){ 
+    pulse.fetchLedData();
+   //Adding up current values over 4 samples
+    //IR1 += pulse.ps2;
+    IR1 += pulse.ps1;
+    i++;  
+    }
+      
+ // get average (red+red+red+red/4)
+  IR1 = IR1 / i;
+
+  //Printing the raw LED values
+  //For the python script, I'm sending the raw values separated by tabs.
+
+  Serial.print(IR1);Serial.print("\t");
+  
+  
   /* Get a new sensor event */ 
   sensors_event_t accel, mag, gyro, temp;
 
@@ -304,25 +324,6 @@ void loop(void)
   // print out gyroscopic data
   Serial.print((float)gyro.gyro.x,4); Serial.print("\t");
   Serial.print((float)gyro.gyro.y,4); Serial.print("\t");
-  Serial.print((float)gyro.gyro.z,4); Serial.print("\t");
-  
-  int i=0;
-  IR1 = 0;
-
-  while (i < samples){ 
-    pulse.fetchLedData();
-   //Adding up current values over 4 samples
-    //IR1 += pulse.ps2;
-    IR1 += pulse.ps1;
-    i++;  
-    }
-      
- // get average (red+red+red+red/4)
-  IR1 = IR1 / i;
-
-  //Printing the raw LED values
-  //For the python script, I'm sending the raw values separated by tabs.
-
-  Serial.println(IR1);
+  Serial.println((float)gyro.gyro.z,4);
                                
 }

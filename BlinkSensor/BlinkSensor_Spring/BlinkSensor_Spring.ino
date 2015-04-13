@@ -26,9 +26,11 @@ const int samples = 4;            // samples for smoothing 1 to 10 seem useful i
 // some printing options for experimentation (sketch is about the same)
 #define SEND_TO_PROCESSING_SKETCH
 #define PRINT_RAW_LED_VALUES           // prints Raw LED values for debug or experimenting
- 
+
+
+///
 unsigned long IR1;
-PortI2C myBus (PORT_FOR_SI114);
+PortI2C myBus (PORT_FOR_SI114,20);
 //pulse is of type PulsePlug, defined in header file
 PulsePlug pulse (myBus); 
 
@@ -39,8 +41,8 @@ void setup () {
         Serial.print("No SI114x found on Port ");
         Serial.println(PORT_FOR_SI114);
     }
-    
-    Serial.begin(57600);
+    Serial.begin(28800);
+   // Serial.begin(57600);
     //Enables the pull-up resistor
     digitalWrite(3, HIGH);
     //Write 0.17 to the HW_KEY register for proper operation in Initialization Mode
@@ -108,16 +110,16 @@ void loop(){
     pulse.fetchLedData();
    //Adding up current values over 4 samples
     //IR1 += pulse.ps2;
+    delay(100);
+    Serial.println(pulse.ps1);
     IR1 += pulse.ps1;
     i++;  
     }
-      
+  //Serial.println(IR1);
  // get average (red+red+red+red/4)
   IR1 = IR1 / i;
 
   //Printing the raw LED values, der
   //For the python script, I'm sending the raw values separated by tabs.
-  Serial.println(IR1);
-                               
-  delay(1);                                                                                              
+                                                                                    
 }
