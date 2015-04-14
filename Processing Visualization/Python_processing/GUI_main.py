@@ -30,14 +30,14 @@ from outputnumbers import SerialData as genIRserialData
 # Gui_main.py
 # This is the main 
 # def readCommands():
-# 	class HelloWorld(cmd.Cmd):
-# 	Simple command processor example.
+#   class HelloWorld(cmd.Cmd):
+#   Simple command processor example.
 	
-#     	def do_greet(self, line):
-#        		print "hello"
+#       def do_greet(self, line):
+#               print "hello"
 	
-#    		def do_EOF(self, line):
-#         	return True
+#           def do_EOF(self, line):
+#           return True
 
 ################################################################################
 class MainFrame(wx.Frame):
@@ -50,27 +50,30 @@ class MainFrame(wx.Frame):
 		self.Panel1 = IMUPanel(self)
 		self.Panel2 = BlinkPanel(self)
 		self.Panel3 = CameraPanel(self)
-		self.Panel4 = GraphPanel(self)
-		#self.Panel4 = BoundControlBox(self, -1, "X min", 0)
+
+		self.displayPanel = GraphPanel(self)
+		
 
 
 		#resize them
 		sizerH = wx.BoxSizer(wx.HORIZONTAL)
-		sizerV = wx.BoxSizer(wx.VERTICAL)
-		#
+		#sizerV = wx.BoxSizer(wx.VERTICAL)
+		box = wx.StaticBox(self, -1, label = "Control Box")
+		sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
 		
-		sizerH.Add(self.Panel1, 1, wx.EXPAND)
-		sizerH.AddSpacer(5,5)
 		
-		sizerH.Add(self.Panel2, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+		sizerV.Add(self.Panel1, 0, wx.EXPAND)
+		sizerV.AddSpacer(5,5)
 		
-		sizerH.AddSpacer(5,5)
-		sizerH.Add(self.Panel3, 0, wx.EXPAND)
+		sizerV.Add(self.Panel2, 0, wx.EXPAND)
+		
+		sizerV.AddSpacer(5,5)
+		sizerV.Add(self.Panel3, 0, wx.EXPAND)
 	
-		sizerV.Add(self.Panel4, 0, wx.EXPAND)
+		sizerH.Add(self.displayPanel, 1, wx.EXPAND|wx.ALL)
 		
-		sizerV.Add(sizerH, 1, wx.ALL|wx.EXPAND, 5)
-		self.SetSizerAndFit(sizerV)
+		sizerH.Add(sizerV, 0, wx.RIGHT, 0)
+		self.SetSizerAndFit(sizerH)
 		#self.Fit()
 		# Setting up the menu bar
 		filemenu= wx.Menu()
@@ -154,7 +157,6 @@ class IMUPanel(wx.Panel):
 
 		win.Show(True)
 
-
 ################################################################################
 class CameraPanel(wx.Panel):
 	"""This panel holds Extra Controls for controlling the camera"""
@@ -178,7 +180,7 @@ class CameraPanel(wx.Panel):
 		self.textBox = wx.TextCtrl(self, -1, size=(140,-1))
 		self.textBox.SetValue(self.name)
 	
-	#	self.lblname = wx.StaticText(self, label="Writing to:" + self.name))
+	#   self.lblname = wx.StaticText(self, label="Writing to:" + self.name))
 		#dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
 		#dlg.ShowModal()
 		#self.name = dlg.getValue
@@ -264,8 +266,6 @@ class GraphPanel(wx.Panel):
 		#Remember, this comes in the form [IR1, IR2, IR3, light]
 		self.datagen = genIRserialData()
 		self.data = self.datagen.next()
-		print "meow", self.data
-		#self.data = IRdataGen()
 		#**************************
 		self.time = [datetime.datetime.now().time()]
 		self.IR1 = [self.data[0]]
@@ -284,10 +284,7 @@ class GraphPanel(wx.Panel):
 		self.calibrateIdx = 1
 		self.avg3Idx = 1
 		
-		#self.create_menu()
-		#self.create_status_bar()
 		self.create_main_panel()
-		print "hey", self.data
 		
 		self.redraw_timer = wx.Timer(self)
 		self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
@@ -307,12 +304,11 @@ class GraphPanel(wx.Panel):
 		self.init_plot()
 		
 		self.canvas = FigCanvas(self, -1, self.fig)
+		self.xmin_control = BoundControlBox(self, -1, "X min", 0, True)
+		self.xmax_control = BoundControlBox(self, -1, "X max", 50, True)
+		self.ymin_control = BoundControlBox(self, -1, "Y min", 0, True)
+		self.ymax_control = BoundControlBox(self, -1, "Y max", 100, True)
 
-		self.xmin_control = BoundControlBox(self, -1, "X min", 0)
-		self.xmax_control = BoundControlBox(self, -1, "X max", 50)
-		self.ymin_control = BoundControlBox(self, -1, "Y min", 0)
-		self.ymax_control = BoundControlBox(self, -1, "Y max", 100)
-		
 		self.pause_button = wx.Button(self, -1, "Pause")
 		self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
 		self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
@@ -321,14 +317,14 @@ class GraphPanel(wx.Panel):
 		self.Bind(wx.EVT_BUTTON, self.on_calibrate_button, self.calibrate_button)
 		
 		self.cb_grid = wx.CheckBox(self, -1, 
-		    "Show Grid",
-		    style=wx.ALIGN_RIGHT)
+			"Show Grid",
+			style=wx.ALIGN_RIGHT)
 		self.Bind(wx.EVT_CHECKBOX, self.on_cb_grid, self.cb_grid)
 		self.cb_grid.SetValue(True)
 		
 		self.cb_xlab = wx.CheckBox(self, -1, 
-		    "Show X labels",
-		    style=wx.ALIGN_RIGHT)
+			"Show X labels",
+			style=wx.ALIGN_RIGHT)
 		self.Bind(wx.EVT_CHECKBOX, self.on_cb_xlab, self.cb_xlab)        
 		self.cb_xlab.SetValue(True)
 		
@@ -359,7 +355,7 @@ class GraphPanel(wx.Panel):
 	def create_status_bar(self):
 		self.statusbar = self.CreateStatusBar()
 
-	def init_plot(self, ):
+	def init_plot(self):
 		self.dpi = 100
 		self.fig = Figure((3.0, 3.0), dpi=self.dpi)
 
@@ -368,7 +364,7 @@ class GraphPanel(wx.Panel):
 		self.axes.set_axis_bgcolor('black')
 		self.axes_lightSensor.set_axis_bgcolor('black')
 		self.axes.set_title('Blink Sensor', size=12)
-		self.axes_lightSensor.set_title('Light Sensor', size=12)
+		self.axes_lightSensor.set_title('IMU data', size=12)
 		
 		pylab.setp(self.axes.get_xticklabels(), fontsize=8)
 		pylab.setp(self.axes.get_yticklabels(), fontsize=8)
@@ -409,7 +405,6 @@ class GraphPanel(wx.Panel):
 		# sliding window effect. therefore, xmin is assigned after
 		# xmax.
 		#
-		print(self.data)
 		if self.xmax_control.is_auto():
 			xmax = len(self.IR1) if len(self.IR1) > 50 else 50
 		else:
@@ -508,114 +503,113 @@ class GraphPanel(wx.Panel):
 			self.flash_status_message("Saved to %s" % path)
 
 	def on_redraw_timer(self, event):
-	    # if paused do not add data, but still redraw the plot
-	    # (to respond to scale modifications, grid change, etc.)
-	    #
-	    if not self.paused:
-	        self.dataAppend = self.datagen.next()
-	        IR1Append = self.dataAppend[0]
-	        LightAppend = self.dataAppend[3]
-	        self.IR1.append(IR1Append)
-	        self.time.append(datetime.datetime.now().time())
-	        #Running average of previous three light values
-	        if self.safe == True:
-	            if self.avg3Idx < 3:
-	                self.avg3 = self.avg3 + self.light[-1]
-	                self.avg3Idx = self.avg3Idx + 1
-	                self.safe == True
-	            elif self.avg3Idx == 3:
-	                self.avg3_cur = (self.avg3 + self.light[-1])/3.0
-	                self.avg3Idx = 1
-	                self.avg3 = 0
-	                self.safe == True
+		# if paused do not add data, but still redraw the plot
+		# (to respond to scale modifications, grid change, etc.)
+		
+		if not self.paused:
+			try:	
+				self.dataAppend = self.datagen.next()
+				IR1Append = self.dataAppend[0]
+				LightAppend = self.dataAppend[3]
+				self.IR1.append(IR1Append)
+				self.time.append(datetime.datetime.now().time())
+				#Running average of previous three light values
+				if self.safe == True:
+					if self.avg3Idx < 3:
+						self.avg3 = self.avg3 + self.light[-1]
+						self.avg3Idx = self.avg3Idx + 1
+						self.safe == True
+					elif self.avg3Idx == 3:
+						self.avg3_cur = (self.avg3 + self.light[-1])/3.0
+						self.avg3Idx = 1
+						self.avg3 = 0
+						self.safe == True
 
-	            #If the current light value is greater than +- 1 from the avg
-	            if (LightAppend > self.avg3_cur + 2) or (LightAppend < self.avg3_cur - 2):
-	                self.glance.append(250)
-	            else:
-	                self.glance.append(180)
-	        else:
-	            self.glance.append(180)
-	                
-	            
-	        #Now add the current light value
-	        self.light.append(LightAppend)
-	        
-	        
-	        #If we calibrate, average 10 data points
-	        if self.calibrate:
-	            #If we're recalibrating, reset the average to 0
-	            if self.calibrateIdx == 1:
-	                self.average = 0
-	            if self.calibrateIdx < 10:
-	                self.average = self.average + IR1Append
-	                self.calibrateIdx = self.calibrateIdx + 1
-	            else:
-	                self.average = self.average/10.0
-	                self.calibrate = False
-	                self.calibrateIdx = 1
-	            #While calibrating blink will be 0
-	            self.blink.append(0)
-	            self.safe = True
-	        else:
-	            #If IR1 is twice the calibrated baseline, it's likely a blink
-	            if IR1Append > self.average + 1000:
-	                blinkData = self.average + 1000
-	            else:
-	                blinkData = self.average
-	            self.blink.append(blinkData) 
+					#If the current light value is greater than +- 1 from the avg
+					if (LightAppend > self.avg3_cur + 2) or (LightAppend < self.avg3_cur - 2):
+						self.glance.append(250)
+					else:
+						self.glance.append(180)
+				else:
+					self.glance.append(180)
+						
+					
+				#Now add the current light value
+				self.light.append(LightAppend)
+				
+				
+				#If we calibrate, average 10 data points
+				if self.calibrate:
+					#If we're recalibrating, reset the average to 0
+					if self.calibrateIdx == 1:
+						self.average = 0
+					if self.calibrateIdx < 10:
+						self.average = self.average + IR1Append
+						self.calibrateIdx = self.calibrateIdx + 1
+					else:
+						self.average = self.average/10.0
+						self.calibrate = False
+						self.calibrateIdx = 1
+					#While calibrating blink will be 0
+					self.blink.append(0)
+					self.safe = True
+				else:
+					#If IR1 is twice the calibrated baseline, it's likely a blink
+					if IR1Append > self.average + 1000:
+						blinkData = self.average + 1000
+					else:
+						blinkData = self.average
+					self.blink.append(blinkData)
+				self.draw_plot()
+			except KeyboardInterrupt:
+				pass
+
 		
 ################################################################################
 class BoundControlBox(wx.Panel):
-    """ A static box with a couple of radio buttons and a text
-        box. Allows to switch between an automatic mode and a 
-        manual mode with an associated value.
-    """
-    def __init__(self, parent, ID, label, initval):
-        wx.Panel.__init__(self, parent, ID)
-        
-        self.value = initval
-        
-        box = wx.StaticBox(self, -1, label)
-        sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-        
-        self.radio_auto = wx.RadioButton(self, -1, 
-            label="Auto", style=wx.RB_GROUP)
-        self.radio_manual = wx.RadioButton(self, -1,
-            label="Manual")
-        self.manual_text = wx.TextCtrl(self, -1, 
-            size=(35,-1),
-            value=str(initval),
-            style=wx.TE_PROCESS_ENTER)
-        
-        self.Bind(wx.EVT_UPDATE_UI, self.on_update_manual_text, self.manual_text)
-        self.Bind(wx.EVT_TEXT_ENTER, self.on_text_enter, self.manual_text)
-        
-        manual_box = wx.BoxSizer(wx.HORIZONTAL)
-        manual_box.Add(self.radio_manual, flag=wx.ALIGN_CENTER_VERTICAL)
-        manual_box.Add(self.manual_text, flag=wx.ALIGN_CENTER_VERTICAL)
-        
-        sizer.Add(self.radio_auto, 0, wx.ALL, 10)
-        sizer.Add(manual_box, 0, wx.ALL, 10)
-        
-        self.SetSizer(sizer)
-        sizer.Fit(self)
-    
-    def on_update_manual_text(self, event):
-        self.manual_text.Enable(self.radio_manual.GetValue())
-    
-    def on_text_enter(self, event):
-        self.value = self.manual_text.GetValue()
-    
-    def is_auto(self):
-        return self.radio_auto.GetValue()
-        
-    def manual_value(self):
-        return self.value
+	""" A static box with a couple of radio buttons and a text
+		box. Allows to switch between an automatic mode and a 
+		manual mode with an associated value.
+	"""
+	def __init__(self, parent, ID, label, initval, checked = False):
+		wx.Panel.__init__(self, parent, ID)
+		
+		self.value = initval
+		
+		box = wx.StaticBox(self, -1, label)
+		sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
+		
+		self.auto = wx.CheckBox(self, -1, label = "Auto", style=wx.ALIGN_RIGHT)
+		self.auto.SetValue(checked)
+		self.manual_text = wx.TextCtrl(self, -1, 
+			size=(35,-1),
+			value=str(initval),
+			style=wx.TE_PROCESS_ENTER)
+		
+		self.Bind(wx.EVT_UPDATE_UI, self.on_update_manual_text, self.manual_text)
+		self.Bind(wx.EVT_TEXT_ENTER, self.on_text_enter, self.manual_text)
+		
+		sizer.Add(self.auto, 0, wx.EXPAND, 0)
+		sizer.Add(self.manual_text, 0, wx.EXPAND, 0)
+		
+		self.SetSizer(sizer)
+		sizer.Fit(self)
+	
+	def on_update_manual_text(self, event):
+		self.manual_text.Enable(not self.auto.GetValue())
+	
+	def on_text_enter(self, event):
+		self.value = self.manual_text.GetValue()
+	
+	def is_auto(self):
+		return self.auto.GetValue()
+		
+	def manual_value(self):
+		return self.value
 ################################################################################
 #def camera():
-#	def __init__(self, parent):
-#		self.p = subprocess.Popen() 
+#   def __init__(self, parent):
+#       self.p = subprocess.Popen() 
 # vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30 --sout="#duplicate{dst=display,dst='transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\Users\\jyang\\Desktop\\designReview-2.mp4}'}"
 def runCamera(name, saving=False):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
