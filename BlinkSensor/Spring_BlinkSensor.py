@@ -7,7 +7,7 @@ import pylab as pl
 from KeyPress import *
 import numpy as np
 debug = False
-test = False
+test = True
 
 
 '''
@@ -108,9 +108,10 @@ class BlinkSensor:
         #at the end of the trial it is saved to filename
         self.bogusFile = 'bogus.csv'
         self.filename = ''
+        self.testFileName = ''
         #Set equal to True if you are running KeyPress.py at the same time to record when the
         #blinks are actually occurring.
-        self.CheckKeyPress = True
+        self.CheckKeyPress = False
         #Vector that holds the raw IR LED values
         self.IRVector = []
         #Vector that holds time values in seconds, used for the algorithm calculations
@@ -507,6 +508,44 @@ class BlinkSensor:
 
             writer.writerows(all)
 
+    def saveTestFile(self):
+        blinkArray = self.openBlinks()
+        print blinkArray
+        self.DetectedBlinks = len(blinkArray)
+
+        with open(self.filename, 'rb') as input, open((self.testFileName), 'wb') as output:
+            writer = csv.writer(output, delimiter=',')
+            reader = csv.reader(input, delimiter = ',')
+            blink = False
+            all = []
+            row = next(reader)
+
+            if(len(blinkArray)>0):
+                currentBlink = blinkArray[0]
+            all.append(row)
+            
+            for k, row in enumerate(reader):
+                if(len(blinkArray)==0):
+                    row[4] = 0
+                else:
+                    rowVector = row[0].split(',')
+                    if(float(row[2]) == currentBlink[0]):
+                        blink = True
+                        row[4] = row[3]
+                    elif(currentBlink[1] == float(row[2])):
+                        blink = False
+                        row[4] = row[3]
+                        blinkArray = blinkArray[1:]
+                        if(len(blinkArray)!=0):
+                            currentBlink = blinkArray[0]
+                    elif(blink):
+                        row[4] = row[3]
+                    else:
+                        row[4] = 0
+                all.append(row)
+
+            writer.writerows(all)
+
 
     #tWindow must be in minutes (e.g. 60 minutes instead of 1 hour)
     def AddBlinksInWindow(self,newBlink):
@@ -531,7 +570,11 @@ class BlinkSensor:
     #mode == 1 means it will plot
     #mode == 2 retrieves data needed for test mode
     def csv_reader(self, mode):
-        with open(self.filename, 'r') as csv_file:
+        if(test):
+            inputFile = self.testFileName
+        else:
+            inputFile = self.filename
+        with open(inputFile, 'r') as csv_file:
             reader = csv.reader(csv_file, delimiter = ',')
             Hour = [];
             Minute = [];

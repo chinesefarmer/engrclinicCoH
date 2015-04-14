@@ -1,11 +1,12 @@
-test = False
+test = True
 from Spring_BlinkSensor import *
 
 if __name__=='__main__':
     if(test):
-        filename = ('2015-04-10Jeanette2.csv')
+        filename = ('2015-04-10Jessica2.csv')
         BlinkSensor = BlinkSensor()
         BlinkSensor.filename = filename
+        BlinkSensor.testFileName = ("Test.csv")
         BlinkSensor.saveBlinks([],1)
         data = BlinkSensor.csv_reader(2)
         Hour = data[2]
@@ -17,7 +18,7 @@ if __name__=='__main__':
             BlinkSensor.minTestMode = (Hour[i]*60 + Minute[i] + Time[i]/60)
             BlinkSensor.timeTestMode = Time[i]
             BlinkSensor.Algorithm(RawIR[i],True)
-        BlinkSensor.saveFile()
+        BlinkSensor.saveTestFile()
         BlinkSensor.csv_reader(1)
     else:
         filename = raw_input('Enter a file name:  ')
@@ -28,6 +29,7 @@ if __name__=='__main__':
 
         BlinkSensor = BlinkSensor()
         BlinkSensor.filename = filename
+        BlinkSensor.CheckKeyPress = True
         initSerialConnection(usb,BlinkSensor)
 
 
