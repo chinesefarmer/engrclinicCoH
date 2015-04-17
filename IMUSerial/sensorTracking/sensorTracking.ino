@@ -293,7 +293,7 @@ void loop(void)
   //Printing the raw LED values
   //For the python script, I'm sending the raw values separated by tabs.
 
-  Serial.print(IR1);Serial.print("\t");
+
   
   
   /* Get a new sensor event */ 
@@ -302,6 +302,7 @@ void loop(void)
   lsm.getEvent(&accel, &mag, &gyro, &temp); 
 //  unsigned long startTime = micros();
   // print out accelleration data
+  Serial.print(IR1);Serial.print("\t");
   Serial.print((float)accel.acceleration.x,4); Serial.print("\t");
   Serial.print((float)accel.acceleration.y,4); Serial.print("\t");
   Serial.print((float)accel.acceleration.z,4); Serial.print("\t");
@@ -325,5 +326,7 @@ void loop(void)
   Serial.print((float)gyro.gyro.x,4); Serial.print("\t");
   Serial.print((float)gyro.gyro.y,4); Serial.print("\t");
   Serial.println((float)gyro.gyro.z,4);
+  
+  delay(1);
                                
 }
