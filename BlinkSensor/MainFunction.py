@@ -3,10 +3,10 @@ from Spring_BlinkSensor import *
 
 if __name__=='__main__':
     if(test):
-        filename = ('2015-04-10Jessica2.csv')
+        filename = ('2015-04-10Jessica5.csv')
         BlinkSensor = BlinkSensor()
         BlinkSensor.filename = filename
-        BlinkSensor.testFileName = ("Test.csv")
+        BlinkSensor.testFileName = ("Test2.csv")
         BlinkSensor.saveBlinks([],1)
         data = BlinkSensor.csv_reader(2)
         Hour = data[2]
