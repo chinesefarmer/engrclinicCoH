@@ -4,17 +4,20 @@ from math import *
 import msvcrt as m
 import numpy as np
 import pylab as pl
+import time as tm
 
 #import datetime
 #import time
 
 from datetime import *
-import Spring_BlinkSensor
+import Spring_BlinkSensor as bs
 
 #----------Global Variables for the IMU--------------------------------
 # Customizable Parameters
 avgSize = 30                    # Moving Average Filter Sample Size
-avgWeighting = 0.5
+avgWeightingRoll = 0.5
+avgWeightingPitch = 0.5
+avgWeightingYaw = 0.5
 pauseCheck = 0                                 # Debug code
 SAMPLE_LENGTH = 2500
 ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
@@ -26,53 +29,25 @@ calibrationNo = 100             # Number of iterations during calibration step
 trialNum = 0;
 nextR = 0; nextP = 0; nextY = 0; 
 gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
+timeStamp = datetime.now().time()
+startTime = ((timeStamp.hour*60 + timeStamp.minute + 
+            (timeStamp.second + 
+            0.000001*timeStamp.microsecond)/60))*60
 
 previousR = 0;
 previousP = 0;
 previousY = 0;
 previousTime = 0;
+
+# Makes an array of 360 zeroes which will be populated by the number of samples
+# at each angle
+timeAtRoll = np.zeros(360)
+timeAtPitch = np.zeros(360)
+timeAtYaw = np.zeros(360)
+
+#For Testing
+smoothYawAll = []
 #---------------------------------------------------------------------
-
-#--------Global Variables for the Blink Sensor--------------------------
-CheckKeyPress = False
-IRVector = []
-tVector = []
-derivVector = []
-blinkVector = []
-subBlink = []
-debug = False
-tWindow = 1.0/3
-tPrintBlink = 1.0/6
-minutes = 0
-timeStamp = datetime.now().time()
-startTime = (timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60)*60
-
-#Length of running average
-n=4
-trackPos = False
-trackNeg = False
-startIR = 0
-startIndex = 0
-endIndex = 0
-startT = 0
-endT = 0
-endIR = 0
-peak = 0
-valley = 0
-blinkRange = []
-negB = False
-posB = False
-positive = 0
-negative = 0
-#Running average of derivatives
-runningAvg = 0
-error = 0;
-
-#Any derivatives above/below these values are considered part of a blink
-negSlopeThresh = -23000
-posSlopeThresh = 13000
-
-
 
 #------------------------Functions-------------------------------
 
@@ -225,24 +200,6 @@ def avgFilter(imuSignal):
         smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
     return smoothSig
 
-# Creates a list of the angles and a list of the amount of time spent at those angles
-def timeAtAngle(time,angle):
-    # Assumption: All timesteps are close to the average time step
-    avgTimeStep = (max(time)-min(time))/len(time)
-    minAngle = int(min(angle))
-    
-    # Array of zeros with a fixed size equal to the total number of whole number angles
-    angleTimes = np.zeros(int(max(angle))-minAngle + 1)
-    timeAtAng = []
-
-    # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
-    for i in range(len(angle)-1):
-        currentAngle = int(angle[i])- minAngle
-        angleTimes[currentAngle] += avgTimeStep
-    # Creates a list of angle values that corresponds to the times above
-    angleList = [x+minAngle for x in range(len(angleTimes))]
-
-    return [angleList , angleTimes]
 
 # Calculates the approximate orientation that the head needs to be oriented in order to be facing the
 # operating field and calculates the percentage of time the head is facing that way (for the pitch orientation)
@@ -368,6 +325,8 @@ def calcRPYData(serialData):
     global calibrationNo
     global last_received
     global startTime
+
+    ready = 0
     # Calibration Sequence: Accounts for drift of gyro data
     # During calibration, the IMU must be placed on a stationary
     # surface
@@ -386,7 +345,7 @@ def calcRPYData(serialData):
         gyroDriftZ = gyroDriftZ / calibrationNo
     # Calibration Sequence completed
     else:
-
+        ready = 1
         #Pause initiated to allow users to secure the IMU on user's head
         global pauseCheck
         if(pauseCheck == 0):
@@ -431,13 +390,24 @@ def calcRPYData(serialData):
         pitch = -1*nextP*180/pi
         yaw = abs(nextY*180/pi)
 
+        # Makes Roll, Pitch, and Yaw range betweem -180 to 180 degrees
+        if(roll>180):
+            roll = roll - 360
+        elif(roll<-180):
+            roll = roll + 360
+
+        if(pitch>180):
+            pitch = pitch - 360
+        elif(pitch<-180):
+            pitch = pitch + 360
+
     timeStamp = datetime.now().time()
     #Time elapsed from start
     currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - startTime
     #Saves the IMU data to a csv file
     data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
     csv_writer(data,filenameIMU)
-    return [roll, pitch, GyroY ,currTime]
+    return [roll, pitch, GyroY ,currTime, ready]
 
 ##    # Stops program after a number of samples have been collected
 ##    # Should be replaced with interrupt by GUI
@@ -448,26 +418,37 @@ def calcRPYData(serialData):
 ##        break
 
 def processIMUData(IMUData):
-    global previousR, previousP, previousY
-    [roll, pitch, gyroY, currTime] = IMUData
-    smoothRoll = rtSmoothFilter(previousR, roll);
-    smoothPitch = rtSmoothFilter(previousP, pitch);
+    global previousR, previousP, previousY, previousTime, timeAtRoll,timeAtPitch,timeAtYaw
+    global avgWeightingRoll, avgWeightingPitch, avgWeightingYaw
+    
+    [roll, pitch, gyroY, currTime, ready] = IMUData
+    smoothRoll = rtSmoothFilter(previousR, roll, avgWeightingRoll);
+    smoothPitch = rtSmoothFilter(previousP, pitch, avgWeightingPitch);
 
-    yaw = calcGyroYaw(currTime,previousY,gyroY)
-    smoothYaw = rtSmoothFilter(previousY,yaw)
+    # Calculates the yaw from the gyro
+    yaw = calcGyroYaw(previousY,currTime,gyroY)
+    smoothYaw = rtSmoothFilter(previousY,yaw,avgWeightingYaw)
+    smoothYaw = yaw
+
+    timeAtAngle(smoothRoll,smoothPitch,smoothYaw)
+
 
     previousR = smoothRoll
     previousP = smoothPitch
     previousY = smoothYaw
     previousTime = currTime
 
-    return [smoothRoll,smoothPitch,smoothYaw]
+    # For Testing
+    global smoothYawAll
+    smoothYawAll.append(yaw)
+
+
+    return [smoothRoll,smoothPitch,smoothYaw, timeAtRoll,timeAtPitch,timeAtYaw]
 
 
 
 # Real Time Exponential Moving Average Filter
-def rtSmoothFilter(prevRPY,rpyData):
-    global avgWeighting            #Determines the size of the avg filter
+def rtSmoothFilter(prevRPY,rpyData, avgWeighting):
     smoothedData = rpyData*avgWeighting + (1-avgWeighting)*prevRPY
     return smoothedData
 
@@ -478,9 +459,16 @@ def rtSmoothFilter(prevRPY,rpyData):
 
 def calcGyroYaw(previousY, currTime, gyroY):
     global previousTime, gyroDriftY
-
+##    print "-----------"
+##    print gyroY+gyroDriftY
+##    print (currTime-previousTime)
+##    print previousY
     yawAngle = (((gyroY+gyroDriftY)*(currTime-previousTime)+previousY)*.998)
-
+    
+    if(yawAngle > 180):
+        yawAngle = 180
+    elif(yawAngle <-180):
+        yawAngle = -180
     return yawAngle
 
 # Old Code
@@ -491,6 +479,40 @@ def calcGyroYaw(previousY, currTime, gyroY):
 #        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
 
 #     return yawAngle
+
+# 
+def timeAtAngle(roll,pitch,yaw):
+    global timeAtRoll,timeAtPitch,timeAtYaw
+    # Assumption: All timesteps are close to the average time step
+    
+    # Corrects for the fact that RPY range between 180 and -180
+    roll += 180
+    pitch += 180
+    yaw += 179
+
+    timeAtRoll[int(roll)] += 1
+    timeAtPitch[int(pitch)] += 1
+    timeAtYaw[int(yaw)] += 1
+
+# Old code
+# Creates a list of the angles and a list of the amount of time spent at those angles
+# def timeAtAngle(time,angle):
+#     # Assumption: All timesteps are close to the average time step
+#     avgTimeStep = (max(time)-min(time))/len(time)
+#     minAngle = int(min(angle))
+    
+#     # Array of zeros with a fixed size equal to the total number of whole number angles
+#     angleTimes = np.zeros(int(max(angle))-minAngle + 1)
+#     timeAtAng = []
+
+#     # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
+#     for i in range(len(angle)-1):
+#         currentAngle = int(angle[i])- minAngle
+#         angleTimes[currentAngle] += avgTimeStep
+#     # Creates a list of angle values that corresponds to the times above
+#     angleList = [x+minAngle for x in range(len(angleTimes))]
+
+#     return [angleList , angleTimes]
 
 
 
@@ -514,29 +536,43 @@ def initSerialConnection(usb):
     buffer = ''
 
     #Writes the first line of both files
-    csv_writer(["Y:D:M", "H:M:S", "Seconds","IR1"],filename)
     csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
 
 
 #------------------------Main Function-----------------------------------
 
 
-
+def plotter():
+    global timeAtRoll, timeAtPitch, timeAtYaw, smoothYawAll
+    pl.figure(1)
+    pl.subplot(411)
+    pl.plot(timeAtRoll)
+    pl.subplot(412)
+    pl.plot(timeAtPitch)
+    pl.subplot(413)
+    pl.plot(timeAtYaw)
+    pl.subplot(414)
+    pl.plot(smoothYawAll[0:])
+    pl.show()
 
 # serialData = [isSuccess,[IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
 
 if __name__=='__main__':
 
-    global filename,filenameIMU,outputFile
+    global filename,filenameIMU,filenameBlink
     #Writes the raw data for the blink sensor
     filename = raw_input('Enter a file name:  ')+ ".csv"
     #Writes the raw data for the IMU
     filenameIMU = (filename[:-4] + 'IMU.csv' )
     #Reads the data to process for the blink sensor
-    outputFile = (filename[:-4] + 'Full.csv' )
+    filenameBlink = (filename[:-4] + 'Blink.csv' )
 
     usb = Serial('COM6', 57600)
-    initSerialConnection(usb)
+    blinkSensor = bs.BlinkSensor()
+    blinkSensor.filename = filenameBlink
+    bs.initSerialConnection(usb, blinkSensor)
+    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
+    
     '''BEN: This is the loop I'm using right now to keep getting serial data and 
     then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''
     while True:
@@ -548,8 +584,20 @@ if __name__=='__main__':
             if(serialData[0] == 1):
                 #[roll, pitch, yaw, currTime]
                 IMUData = calcRPYData(serialData[1])
-                processedData = processIMUData(IMUData)
-                # appendData(processedData)
+                # Checks to see if the calibration period has ended
+                if(IMUData[4] == 1):
+                    processedData = processIMUData(IMUData)
+
+                    [smoothRoll,smoothPitch,smoothYaw, timeAtRoll,timeAtPitch,timeAtYaw] = processedData
+                    try:
+                       IR1 = float((serialData[1])[0])
+                       blinkSensor.Algorithm(IR1, False)
+                    except ValueError:
+                       print "Value Error"
+
+                    # Slows down the cycle enough to prevent divide by zero errors
+                    tm.sleep(.001)
+                    # appendData(processedData)
 
 
 #                print (serialData[1])[0]
@@ -557,7 +605,11 @@ if __name__=='__main__':
 
             # getSerial(usb)
         except KeyboardInterrupt:
-            csv_reader(filenameIMU)
+            plotter()
+            # blinkSensor.saveFile()
+            # blinkSensor.csv_reader(1)
+            # usb.close()
+            # csv_reader(filenameIMU)
             # saveFile(usb)
             # csv_reader(outputFile)
             break

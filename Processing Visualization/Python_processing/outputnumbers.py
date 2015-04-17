@@ -21,6 +21,7 @@ class SerialData(object):
 
 	def next(self):
 		self.genData()
+		#print "gennext"
 		return self.dataSet
 
 	def __del__(self):
