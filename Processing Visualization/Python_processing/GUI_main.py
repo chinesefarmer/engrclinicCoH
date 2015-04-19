@@ -659,7 +659,7 @@ class ColorMapPanel(wx.Panel):
 		#x1, y1 = np.linspace(self.xmin(), self.xmax(), 100), np.linspace(self.ymin(), self.ymax(), 100)
 		#x1, y1 = np.meshgrid(xi, yi)
 		#gradient = np.vstack((gradient, gradient))
-		x = 
+		self.colorPlot_sensor1
 		imshow()
 		# # Set the colormap and norm to correspond to the data for which
 		# # the colorbar will be used

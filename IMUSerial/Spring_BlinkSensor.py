@@ -207,6 +207,7 @@ class BlinkSensor:
             timeD = datetime.now().time()
             self.minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
             seconds = (timeD.second + 0.000001*timeD.microsecond)
+            # print "Seconds: "+str(seconds)
             self.secVector.append(seconds)
             self.minVector.append(self.minutes)
 
@@ -233,6 +234,7 @@ class BlinkSensor:
             i = len(self.IRVector)-1
             
             #Take the derivative
+            # print "Sec[i]: " + str(self.secVector[i]) + " and Sec[i-1]: " + str(self.secVector[i-1])
             deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
 
             #If it's a positive slope above the threshold, start tracking
