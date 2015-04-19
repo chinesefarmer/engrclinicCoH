@@ -246,13 +246,13 @@ class IMUSensor:
         [pitchMax ,pitchFocus] = self.percentFocus(self.timeAtPitch,1)
         [yawMax ,yawFocus] = self.percentFocus(self.timeAtYaw,2)
 
-        print "------------------------------"
-        print rollMax
-        print rollFocus
-        print pitchMax
-        print pitchFocus
-        print yawMax
-        print yawFocus
+        # print "------------------------------"
+        # print rollMax
+        # print rollFocus
+        # print pitchMax
+        # print pitchFocus
+        # print yawMax
+        # print yawFocus
 
         self.previousR = smoothRoll
         self.previousP = smoothPitch
