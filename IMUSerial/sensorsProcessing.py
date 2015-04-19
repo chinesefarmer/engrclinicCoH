@@ -10,45 +10,53 @@ import time as tm
 #import time
 
 from datetime import *
-import Spring_BlinkSensor as bs
 
 #----------Global Variables for the IMU--------------------------------
-# Customizable Parameters
-avgSize = 30                    # Moving Average Filter Sample Size
-avgWeightingRoll = 0.5
-avgWeightingPitch = 0.5
-avgWeightingYaw = 0.5
-pauseCheck = 0                                 # Debug code
-SAMPLE_LENGTH = 2500
-ACCEPTABLE_PITCH_RANGE = 5      #Max Possible Pitch angle and still be facing the table 
-ACCEPTABLE_YAW_RANGE = 3
-MAX_OP_INCLINE = 0
-calibrationNo = 100             # Number of iterations during calibration step
 
-# Required for some functions
-trialNum = 0;
-nextR = 0; nextP = 0; nextY = 0; 
-gyroDriftX = 0; gyroDriftY = 0; gyroDriftZ = 0
-timeStamp = datetime.now().time()
-startTime = ((timeStamp.hour*60 + timeStamp.minute + 
-            (timeStamp.second + 
-            0.000001*timeStamp.microsecond)/60))*60
-
-previousR = 0;
-previousP = 0;
-previousY = 0;
-previousTime = 0;
-
-# Makes an array of 360 zeroes which will be populated by the number of samples
-# at each angle
-timeAtRoll = np.zeros(360)
-timeAtPitch = np.zeros(360)
-timeAtYaw = np.zeros(360)
-
-#For Testing
-smoothYawAll = []
 #---------------------------------------------------------------------
+class IMUSensor:
+    def __init__(self):
+        # Customizable Parameters
+        self.avgWeightingRoll = 0.5
+        self.avgWeightingPitch = 0.5
+        self.avgWeightingYaw = 0.5
+        self.pauseCheck = 0                                 # Debug code
+        # Max Possible Pitch angle and still be facing the table
+        self.ACCEPTABLE_ROLL_RANGE = 5   
+        self.ACCEPTABLE_PITCH_RANGE = 5      
+        self.ACCEPTABLE_YAW_RANGE = 3
 
+        self.calibrationNo = 100             # Number of iterations during calibration step
+
+        # Required for some functions
+        self.trialNum = 0;
+        self.nextR = 0; 
+        self.nextP = 0; 
+        self.nextY = 0; 
+        self.gyroDriftX = 0; 
+        self.gyroDriftY = 0; 
+        self.gyroDriftZ = 0
+
+        timeStamp = datetime.now().time()
+        self.startTime = ((timeStamp.hour*60 + timeStamp.minute + 
+                    (timeStamp.second + 
+                    0.000001*timeStamp.microsecond)/60))*60
+
+        self.previousR = 0;
+        self.previousP = 0;
+        self.previousY = 0;
+        self.previousTime = 0;
+
+        # Makes an array of 360 zeroes which will be populated by the number of samples
+        # at each angle
+        self.timeAtRoll = np.zeros(360)
+        self.timeAtPitch = np.zeros(360)
+        self.timeAtYaw = np.zeros(360)
+
+        #For Testing
+        self.smoothYawAll = []
+
+        self.filenameIMU = ''
 #------------------------Functions-------------------------------
 
 #YO TEAM!!!
@@ -65,140 +73,140 @@ def csv_writer(data,nameOfFile):
         
 #Reads the comma-delimited csv file and writes it to lists.
 #Then plots the lists.
-def csv_reader(nameOfFile):
-    with open(nameOfFile, 'r') as csv_file:
-        reader = csv.reader(csv_file, delimiter = ',')
+# def csv_reader(nameOfFile):
+#     with open(nameOfFile, 'r') as csv_file:
+#         reader = csv.reader(csv_file, delimiter = ',')
 
-        GyroYTot = [];
-        RollTot = [];
-        PitchTot = [];
-        YawTot = [];
-        timeTot = [];
+#         GyroYTot = [];
+#         RollTot = [];
+#         PitchTot = [];
+#         YawTot = [];
+#         timeTot = [];
 
-        # Skips the first line which does not contain data
-        next(reader)
-        # Skips the calibration sequence to arrive at relevant
-        # RPY data
-        for i in range(calibrationNo):
-            next(reader)
-        #Creates a list for RPY and time from the
-            #csv file
-        for row in reader:
-            GyroYTot.append(float(row[7]))
-            RollTot.append(float(row[9]))
-            PitchTot.append(float(row[10]))
-            YawTot.append(float(row[11]))
-            timeTot.append(float(row[12]))
+#         # Skips the first line which does not contain data
+#         next(reader)
+#         # Skips the calibration sequence to arrive at relevant
+#         # RPY data
+#         for i in range(self.calibrationNo):
+#             next(reader)
+#         #Creates a list for RPY and time from the
+#             #csv file
+#         for row in reader:
+#             GyroYTot.append(float(row[7]))
+#             RollTot.append(float(row[9]))
+#             PitchTot.append(float(row[10]))
+#             YawTot.append(float(row[11]))
+#             timeTot.append(float(row[12]))
 
-        totalOpTime = max(timeTot) - min(timeTot)
-        print "Average Sampling Frequency: "
-        print len(timeTot)/totalOpTime
+#         totalOpTime = max(timeTot) - min(timeTot)
+#         print "Average Sampling Frequency: "
+#         print len(timeTot)/totalOpTime
             
-        #Applies the moving average
-        smoothRoll = avgFilter(RollTot)
-        smoothPitch = avgFilter(PitchTot)
-        smoothYaw = avgFilter(YawTot)
+#         #Applies the moving average
+#         smoothRoll = avgFilter(RollTot)
+#         smoothPitch = avgFilter(PitchTot)
+#         smoothYaw = avgFilter(YawTot)
 
-        #Find the time spent at each angle
-        [rollAngleList, rollDist] = timeAtAngle(timeTot,smoothRoll)
-        [pitchAngleList, pitchDist] = timeAtAngle(timeTot,smoothPitch)
-        [yawAngleList, yawDist] = timeAtAngle(timeTot,smoothYaw)
+#         #Find the time spent at each angle
+#         [rollAngleList, rollDist] = self.timeAtAngle(timeTot,smoothRoll)
+#         [pitchAngleList, pitchDist] = self.timeAtAngle(timeTot,smoothPitch)
+#         [yawAngleList, yawDist] = self.timeAtAngle(timeTot,smoothYaw)
 
-        # Integrates the Gyroscope Data
-        gyroYaw = calcGyroYaw(timeTot, GyroYTot)
-        smoothGyro = avgFilter(gyroYaw)
-        [gyroYawList, gyroYawDist] = timeAtAngle(timeTot,smoothGyro)
+#         # Integrates the Gyroscope Data
+#         gyroYaw = calcGyroYaw(timeTot, GyroYTot)
+#         smoothGyro = avgFilter(gyroYaw)
+#         [gyroYawList, gyroYawDist] = self.timeAtAngle(timeTot,smoothGyro)
 
-        #Calculate time spent looking at operating table(in Pitch angles)
-        [percentFocused, focusAngle] = detectTablePitch(pitchAngleList, pitchDist, totalOpTime)
-        print "Percent Time Focused in Pitch Angles: "
-        print percentFocused * 100
-        print "at Pitch angle of: "
-        print focusAngle
+#         #Calculate time spent looking at operating table(in Pitch angles)
+#         [self.percentFocused, focusAngle] = detectTablePitch(pitchAngleList, pitchDist, totalOpTime)
+#         print "Percent Time Focused in Pitch Angles: "
+#         print self.percentFocused * 100
+#         print "at Pitch angle of: "
+#         print focusAngle
 
-        # Uses Gyro Data to calculate the Yaw angle for percent focusing
-        [percentFocused, focusAngle]= detectTableYaw(gyroYawList, gyroYawDist, totalOpTime)
-        print "Percent Time Focused in Yaw Angles: "
-        print percentFocused * 100
-        print "at Yaw angle of: "
-        print focusAngle
+#         # Uses Gyro Data to calculate the Yaw angle for percent focusing
+#         [self.percentFocused, focusAngle]= detectTableYaw(gyroYawList, gyroYawDist, totalOpTime)
+#         print "Percent Time Focused in Yaw Angles: "
+#         print self.percentFocused * 100
+#         print "at Yaw angle of: "
+#         print focusAngle
         
-        pl.rcParams.update({'font.size': 18})
-        #Plots the RPY data in a 3x1 figure with titles
-        pl.figure(1)
-        pl.subplot(421)
-##        pl.plot(timeTot,RollTot)
-        pl.plot(timeTot,smoothRoll)
-        pl.xlabel("Time(s)")
-        pl.ylabel("Degrees")
-        pl.title("Roll")
+#         pl.rcParams.update({'font.size': 18})
+#         #Plots the RPY data in a 3x1 figure with titles
+#         pl.figure(1)
+#         pl.subplot(421)
+# ##        pl.plot(timeTot,RollTot)
+#         pl.plot(timeTot,smoothRoll)
+#         pl.xlabel("Time(s)")
+#         pl.ylabel("Degrees")
+#         pl.title("Roll")
         
-        pl.subplot(423)
-##        pl.plot(timeTot,PitchTot)
-        pl.plot(timeTot,smoothPitch)
-        pl.xlabel("Time(s)")
-        pl.ylabel("Degrees")
-        pl.title("Pitch")
+#         pl.subplot(423)
+# ##        pl.plot(timeTot,PitchTot)
+#         pl.plot(timeTot,smoothPitch)
+#         pl.xlabel("Time(s)")
+#         pl.ylabel("Degrees")
+#         pl.title("Pitch")
         
-##        pl.subplot(425)
-####        pl.plot(timeTot,YawTot)
-##        pl.plot(timeTot,smoothYaw)
-##        pl.xlabel("Time(s)")
-##        pl.ylabel("Degrees")
-##        pl.title("Yaw calculated with Magnetometer")
+# ##        pl.subplot(425)
+# ####        pl.plot(timeTot,YawTot)
+# ##        pl.plot(timeTot,smoothYaw)
+# ##        pl.xlabel("Time(s)")
+# ##        pl.ylabel("Degrees")
+# ##        pl.title("Yaw calculated with Magnetometer")
         
-        pl.subplot(422)
-        pl.plot(rollAngleList,rollDist)
-        pl.title("Time spent with head at Roll angle")
-        pl.ylabel("Time(s)")
-        pl.xlabel("Degrees of Rotation(Degees)")
+#         pl.subplot(422)
+#         pl.plot(rollAngleList,rollDist)
+#         pl.title("Time spent with head at Roll angle")
+#         pl.ylabel("Time(s)")
+#         pl.xlabel("Degrees of Rotation(Degees)")
 
-        pl.subplot(424)
-        pl.plot(pitchAngleList,pitchDist)
-        pl.title("Time spent with head at Pitch angle")
-        pl.ylabel("Time(s)")
-        pl.xlabel("Degrees of Rotation(Degees)")
-##
-##        pl.subplot(526)
-##        pl.plot(yawAngleList,yawDist)
-##        pl.title("Time spent with head at Yaw angle")
-##        pl.ylabel("Time(s)")
-##        pl.xlabel("Degrees of Rotation(Degees)")
+#         pl.subplot(424)
+#         pl.plot(pitchAngleList,pitchDist)
+#         pl.title("Time spent with head at Pitch angle")
+#         pl.ylabel("Time(s)")
+#         pl.xlabel("Degrees of Rotation(Degees)")
+# ##
+# ##        pl.subplot(526)
+# ##        pl.plot(yawAngleList,yawDist)
+# ##        pl.title("Time spent with head at Yaw angle")
+# ##        pl.ylabel("Time(s)")
+# ##        pl.xlabel("Degrees of Rotation(Degees)")
 
-        pl.subplot(425)
-##        pl.plot(timeTot,gyroYaw)
-        pl.plot(timeTot,smoothGyro)
-        pl.title("Yaw")
-        pl.xlabel("Time(s)")
-        pl.ylabel("Degrees")
+#         pl.subplot(425)
+# ##        pl.plot(timeTot,gyroYaw)
+#         pl.plot(timeTot,smoothGyro)
+#         pl.title("Yaw")
+#         pl.xlabel("Time(s)")
+#         pl.ylabel("Degrees")
 
-        pl.subplot(426)
-        pl.plot(gyroYawList,gyroYawDist)
-        pl.title("Time spent with head at Yaw angle")
-        pl.ylabel("Time(s)")
-        pl.xlabel("Degrees of Rotation(Degees)")
+#         pl.subplot(426)
+#         pl.plot(gyroYawList,gyroYawDist)
+#         pl.title("Time spent with head at Yaw angle")
+#         pl.ylabel("Time(s)")
+#         pl.xlabel("Degrees of Rotation(Degees)")
 
-        pl.subplot(427)
-        pl.plot(timeTot,GyroYTot)
-        pl.title("Anglular velocity from the Gyro")
-        pl.xlabel("Time(s)")
-        pl.ylabel("Angular Velocity(Deg/s)")
+#         pl.subplot(427)
+#         pl.plot(timeTot,GyroYTot)
+#         pl.title("Anglular velocity from the Gyro")
+#         pl.xlabel("Time(s)")
+#         pl.ylabel("Angular Velocity(Deg/s)")
 
-        pl.subplots_adjust(hspace=0.69)
-        pl.show()
+#         pl.subplots_adjust(hspace=0.69)
+#         pl.show()
 
 
-#Applies a moving average filter
-def avgFilter(imuSignal):
-    global avgSize            #Determines the size of the avg filter
-    sigSize = len(imuSignal)
-    #Applies moving average
-    smoothSig = np.convolve(imuSignal, np.ones(avgSize)/avgSize, mode='same')
-    #Sets the first and last few smoothed values to
-    for i in range(avgSize):
-        smoothSig[i]=smoothSig[avgSize]
-        smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
-    return smoothSig
+# #Applies a moving average filter
+# def avgFilter(imuSignal):
+#     global avgSize            #Determines the size of the avg filter
+#     sigSize = len(imuSignal)
+#     #Applies moving average
+#     smoothSig = np.convolve(imuSignal, np.ones(avgSize)/avgSize, mode='same')
+#     #Sets the first and last few smoothed values to
+#     for i in range(avgSize):
+#         smoothSig[i]=smoothSig[avgSize]
+#         smoothSig[sigSize - 1 - i] = smoothSig[sigSize - 1 - avgSize]
+#     return smoothSig
 
 
 # Calculates the approximate orientation that the head needs to be oriented in order to be facing the
@@ -209,55 +217,55 @@ def avgFilter(imuSignal):
 # acceptableRange is the range about the angle that still counts as facing the table
 
 # Finds operating angle by finding  the angle that takes the max time
-def detectTablePitch(angles, angleDist, totalTime):
-    global ACCEPTABLE_PITCH_RANGE
-    global MAX_OP_INCLINE           
-    minAngle = min(angles)
-    indexMin = 0
-    maxAngle = max(angles)
-    indexMax = len(angles)-1
+# def detectTablePitch(angles, angleDist, totalTime):
+#     global self.ACCEPTABLE_PITCH_RANGE
+#     global MAX_OP_INCLINE           
+#     minAngle = min(angles)
+#     indexMin = 0
+#     maxAngle = max(angles)
+#     indexMax = len(angles)-1
 
-    if(angles.count(MAX_OP_INCLINE) != 0):
-        locZero = angles.index(MAX_OP_INCLINE)
-        operateAngle = np.argmax(angleDist[0:locZero])
+#     if(angles.count(MAX_OP_INCLINE) != 0):
+#         locZero = angles.index(MAX_OP_INCLINE)
+#         operateAngle = np.argmax(angleDist[0:locZero])
 
-        timeTarget = 0              # Time facing the target operating field
-        for i in range(2*ACCEPTABLE_PITCH_RANGE):
-            iterAngle = operateAngle + i - ACCEPTABLE_PITCH_RANGE
-            # Ensures that the angle lies within the array
-            if(iterAngle < indexMin or iterAngle > indexMax):
-                continue
-            else:
-                # Accumulate all time values within the acceptable range about the calculated center
-                # of operating table
-                timeTarget += angleDist[angles[iterAngle]-minAngle]
+#         timeTarget = 0              # Time facing the target operating field
+#         for i in range(2*self.ACCEPTABLE_PITCH_RANGE):
+#             iterAngle = operateAngle + i - self.ACCEPTABLE_PITCH_RANGE
+#             # Ensures that the angle lies within the array
+#             if(iterAngle < indexMin or iterAngle > indexMax):
+#                 continue
+#             else:
+#                 # Accumulate all time values within the acceptable range about the calculated center
+#                 # of operating table
+#                 timeTarget += angleDist[angles[iterAngle]-minAngle]
                 
-        return [timeTarget/totalTime, operateAngle+minAngle]
-    else:
-        return [0, 0]
+#         return [timeTarget/totalTime, operateAngle+minAngle]
+#     else:
+#         return [0, 0]
 
-# Finds operating angle by finding  the angle that takes the max time
-def detectTableYaw(angles, angleDist, totalTime):
-    global ACCEPTABLE_YAW_RANGE
+# # Finds operating angle by finding  the angle that takes the max time
+# def detectTableYaw(angles, angleDist, totalTime):
+#     global self.ACCEPTABLE_YAW_RANGE
     
-    minAngle = min(angles)
-    indexMin = 0
-    maxAngle = max(angles)
-    indexMax = len(angles)-1
-    operateAngle = np.argmax(angleDist)
+#     minAngle = min(angles)
+#     indexMin = 0
+#     maxAngle = max(angles)
+#     indexMax = len(angles)-1
+#     operateAngle = np.argmax(angleDist)
 
-    timeTarget = 0              # Time facing the target operating field
-    for i in range(2*ACCEPTABLE_YAW_RANGE):
-        iterAngle = operateAngle + i - ACCEPTABLE_YAW_RANGE
-        # Ensures that the angle lies within the array
-        if(iterAngle < indexMin or iterAngle > indexMax):
-            continue
-        else:
-            # Accumulate all time values within the acceptable range about the calculated center
-            # of operating table
-            timeTarget += angleDist[angles[iterAngle]-minAngle]
+#     timeTarget = 0              # Time facing the target operating field
+#     for i in range(2*self.ACCEPTABLE_YAW_RANGE):
+#         iterAngle = operateAngle + i - self.ACCEPTABLE_YAW_RANGE
+#         # Ensures that the angle lies within the array
+#         if(iterAngle < indexMin or iterAngle > indexMax):
+#             continue
+#         else:
+#             # Accumulate all time values within the acceptable range about the calculated center
+#             # of operating table
+#             timeTarget += angleDist[angles[iterAngle]-minAngle]
             
-    return [timeTarget/totalTime, operateAngle+minAngle]
+#     return [timeTarget/totalTime, operateAngle+minAngle]
     
 
 
@@ -308,10 +316,7 @@ def receiveSerial():
                 GyroX = float(last_received_tabbed[7])        
                 GyroY = float(last_received_tabbed[8])
                 GyroZ = float(GyroZ)
-                roll = 0
-                pitch = 0
-                yaw = 0
-                serialData = [IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
+                serialData = [IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ]
                 return [1, serialData]
             except ValueError:
                 return [0, serialData]
@@ -319,42 +324,58 @@ def receiveSerial():
 
 
 def calcRPYData(serialData):
-    [IR1,AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw] = serialData
+    [IR1,AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ] = serialData
     #Initialize variables for requried roll, pitch, yaw calculations
-    global trialNum, nextR, nextP, nextY, gyroDriftX, gyroDriftY, gyroDriftZ
-    global calibrationNo
-    global last_received
-    global startTime
 
+    # 0 means that the calibration sequence has not been completed
+    # 1 means that the calibration sequence has been completed
     ready = 0
+    roll = 0
+    pitch = 0
+
+    timeStamp = datetime.now().time()
+    #Time elapsed from start
+    currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
     # Calibration Sequence: Accounts for drift of gyro data
     # During calibration, the IMU must be placed on a stationary
     # surface
-    if (trialNum < 5):
-        trialNum = trialNum + 1
-    elif(trialNum < calibrationNo - 1):
-        trialNum = trialNum + 1
-        gyroDriftX = gyroDriftX - GyroX
-        gyroDriftY = gyroDriftY - GyroY
-        gyroDriftZ = gyroDriftZ - GyroZ
+    if (self.trialNum < 5):
+        self.trialNum = self.trialNum + 1
 
-    elif(trialNum == calibrationNo - 1):
-        trialNum = trialNum + 1
-        gyroDriftX = gyroDriftX / calibrationNo
-        gyroDriftY = gyroDriftY / calibrationNo
-        gyroDriftZ = gyroDriftZ / calibrationNo
+    elif(self.trialNum < self.calibrationNo - 1):
+        self.trialNum = self.trialNum + 1
+        self.gyroDriftX = self.gyroDriftX - GyroX
+        self.gyroDriftY = self.gyroDriftY - GyroY
+        self.gyroDriftZ = self.gyroDriftZ - GyroZ
+    elif(self.trialNum == self.calibrationNo - 1):
+        self.trialNum = self.trialNum + 1
+        self.gyroDriftX = self.gyroDriftX / self.calibrationNo
+        self.gyroDriftY = self.gyroDriftY / self.calibrationNo
+        self.gyroDriftZ = self.gyroDriftZ / self.calibrationNo
+
     # Calibration Sequence completed
     else:
+
         ready = 1
+        timeStamp = datetime.now().time()
+        #Time elapsed from start
+        currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
+
+
         #Pause initiated to allow users to secure the IMU on user's head
-        global pauseCheck
-        if(pauseCheck == 0):
-            pauseCheck = 1
+        global self.pauseCheck, self.previousTime
+        if(self.pauseCheck == 0):
+            self.pauseCheck = 1
             #Should be replaced with GUI interrupt that triggers when
             #the IMU is secured
             raw_input("Please put on Headset, then press enter:")
-  
-        trialNum = trialNum + 1
+            timeStamp = datetime.now().time()
+            currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
+
+            self.previousTime = currTime
+        
+        self.trialNum = self.trialNum + 1
+
 
         roll = atan2(AcclZ, AcclY)          # Calculates the roll angle
         pitch = 0
@@ -366,29 +387,21 @@ def calcRPYData(serialData):
                 pitch = -1*pi/2
         else:
             pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
-
-        yawY = MagY*sin(roll) - MagZ*cos(roll)
-        yawX = -MagX*cos(pitch)+ MagZ*sin(pitch)*sin(roll) + MagY*sin(pitch)*cos(roll)
-
-        yawOffset = 0
         
-        yaw = atan2(yawY, yawX)
-        
-        gX = abs(GyroX + gyroDriftX)
-        gY = abs(GyroY + gyroDriftY)
-        gZ = abs(GyroZ + gyroDriftZ)
+        gX = abs(GyroX + self.gyroDriftX)
+        gY = abs(GyroY + self.gyroDriftY)
+        gZ = abs(GyroZ + self.gyroDriftZ)
 
-        prevR = nextR
-        prevP = nextP
-        prevY = nextY
+        # Sets the prev variable to the rpy data set in the previous loop
+        prevR = self.nextR
+        prevP = self.nextP
+        prevY = self.nextY
 
-        nextR = (prevR + roll*gX) / (1 + gX)
-        nextP = (prevP + pitch * gZ) / (1 + gZ)
-        nextY = (prevY + yaw * gY) / (1 + gY)
+        self.nextR = (prevR + roll*gX) / (1 + gX)
+        self.nextP = (prevP + pitch * gZ) / (1 + gZ)
 
-        roll = nextR*180/pi
-        pitch = -1*nextP*180/pi
-        yaw = abs(nextY*180/pi)
+        roll = self.nextR*180/pi
+        pitch = -1*self.nextP*180/pi
 
         # Makes Roll, Pitch, and Yaw range betweem -180 to 180 degrees
         if(roll>180):
@@ -401,50 +414,68 @@ def calcRPYData(serialData):
         elif(pitch<-180):
             pitch = pitch + 360
 
-    timeStamp = datetime.now().time()
-    #Time elapsed from start
-    currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - startTime
-    #Saves the IMU data to a csv file
-    data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, yaw, currTime]
-    csv_writer(data,filenameIMU)
-    return [roll, pitch, GyroY ,currTime, ready]
 
-##    # Stops program after a number of samples have been collected
-##    # Should be replaced with interrupt by GUI
-##    global SAMPLE_LENGTH
-##    if(trialNum >= SAMPLE_LENGTH):
-##        # Plots the RPY data
-##        csv_reader(filenameIMU)
-##        break
+        self.nextY = self.calcGyroYaw(prevY,currTime,GyroY)
+    
+    #Saves the IMU data to a csv file
+    data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, self.nextY, currTime]
+    self.csv_writer(data,filenameIMU)
+    return [roll, pitch, self.nextY ,currTime, ready]
+
+
+def calcGyroYaw(previousY, currTime, gyroY):
+    global self.previousTime, self.gyroDriftY
+    yawAngle = ((gyroY*(currTime-self.previousTime)+previousY)*.9)
+
+    # yawAngle = (((gyroY+self.gyroDriftY)*(currTime-self.previousTime)+previousY)*.998)
+
+    # CHECK THIS LATER
+    if(yawAngle > 180):
+        yawAngle = 180
+    elif(yawAngle <-180):
+        yawAngle = -180
+    return yawAngle
+
+
 
 def processIMUData(IMUData):
-    global previousR, previousP, previousY, previousTime, timeAtRoll,timeAtPitch,timeAtYaw
-    global avgWeightingRoll, avgWeightingPitch, avgWeightingYaw
+    global self.previousR, self.previousP, previousY, self.previousTime, self.timeAtRoll,self.timeAtPitch,self.timeAtYaw
+    global self.avgWeightingRoll, self.avgWeightingPitch, self.avgWeightingYaw
     
-    [roll, pitch, gyroY, currTime, ready] = IMUData
-    smoothRoll = rtSmoothFilter(previousR, roll, avgWeightingRoll);
-    smoothPitch = rtSmoothFilter(previousP, pitch, avgWeightingPitch);
+    [roll, pitch, yaw, currTime, ready] = IMUData
+    smoothRoll = self.rtSmoothFilter(self.previousR, roll, self.avgWeightingRoll);
+    smoothPitch = self.rtSmoothFilter(self.previousP, pitch, self.avgWeightingPitch);
+    smoothYaw = self.rtSmoothFilter(previousY,yaw,self.avgWeightingYaw)
 
-    # Calculates the yaw from the gyro
-    yaw = calcGyroYaw(previousY,currTime,gyroY)
-    smoothYaw = rtSmoothFilter(previousY,yaw,avgWeightingYaw)
-    smoothYaw = yaw
+    self.timeAtAngle(smoothRoll,smoothPitch,smoothYaw)
 
-    timeAtAngle(smoothRoll,smoothPitch,smoothYaw)
+    global self.timeAtRoll,self.timeAtPitch,self.timeAtYaw
 
+    # The integer values denote which RPY data is being passed
+    [rollMax ,rollFocus] = self.percentFocus(self.timeAtRoll,0)
+    # Because it is pitch, the percent focus algorithm bounds the information
+    # to angles that correspond to looking downwards towards the operating table
+    [pitchMax ,pitchFocus] = self.percentFocus(self.timeAtPitch,1)
+    [yawMax ,yawFocus] = self.percentFocus(self.timeAtYaw,2)
 
-    previousR = smoothRoll
-    previousP = smoothPitch
+    print "------------------------------"
+    print rollMax
+    print rollFocus
+    print pitchMax
+    print pitchFocus
+    print yawMax
+    print yawFocus
+
+    self.previousR = smoothRoll
+    self.previousP = smoothPitch
     previousY = smoothYaw
-    previousTime = currTime
+    self.previousTime = currTime
 
     # For Testing
-    global smoothYawAll
-    smoothYawAll.append(yaw)
+    global self.smoothYawAll
+    self.smoothYawAll.append(yaw)
 
-
-    return [smoothRoll,smoothPitch,smoothYaw, timeAtRoll,timeAtPitch,timeAtYaw]
-
+    return [smoothRoll,smoothPitch,smoothYaw, self.timeAtRoll,self.timeAtPitch,self.timeAtYaw, rollMax ,rollFocus, pitchMax ,pitchFocus, yawMax ,yawFocus]
 
 
 # Real Time Exponential Moving Average Filter
@@ -453,106 +484,102 @@ def rtSmoothFilter(prevRPY,rpyData, avgWeighting):
     return smoothedData
 
 
-# #For Testing purposes
-# def appendData(IMUData):
-
-
-def calcGyroYaw(previousY, currTime, gyroY):
-    global previousTime, gyroDriftY
-##    print "-----------"
-##    print gyroY+gyroDriftY
-##    print (currTime-previousTime)
-##    print previousY
-    yawAngle = (((gyroY+gyroDriftY)*(currTime-previousTime)+previousY)*.998)
-    
-    if(yawAngle > 180):
-        yawAngle = 180
-    elif(yawAngle <-180):
-        yawAngle = -180
-    return yawAngle
-
-# Old Code
-# def calcGyroYaw(timeTot, gyro):
-#     yawAngle = [0]
-#     yawAngle.append(0)
-#     for i in range(1,len(gyro)-1):
-#        yawAngle.append(((gyro[i]+gyroDriftY)*(timeTot[i]-timeTot[i-1])+yawAngle[i-1])*.998)
-
-#     return yawAngle
-
-# 
 def timeAtAngle(roll,pitch,yaw):
-    global timeAtRoll,timeAtPitch,timeAtYaw
+    global self.timeAtRoll,self.timeAtPitch,self.timeAtYaw
     # Assumption: All timesteps are close to the average time step
     
-    # Corrects for the fact that RPY range between 180 and -180
+    # Corrects for the fact that RPY range is between 180 and -180
     roll += 180
     pitch += 180
     yaw += 179
 
-    timeAtRoll[int(roll)] += 1
-    timeAtPitch[int(pitch)] += 1
-    timeAtYaw[int(yaw)] += 1
+    self.timeAtRoll[int(roll)] += 1
+    self.timeAtPitch[int(pitch)] += 1
+    self.timeAtYaw[int(yaw)] += 1
 
-# Old code
-# Creates a list of the angles and a list of the amount of time spent at those angles
-# def timeAtAngle(time,angle):
-#     # Assumption: All timesteps are close to the average time step
-#     avgTimeStep = (max(time)-min(time))/len(time)
-#     minAngle = int(min(angle))
+
+# Calculates the approximate orientation that the head needs to be oriented in order to be facing the
+# operating field and calculates the percentage of time the head is facing that way (for the pitch orientation)
+# Assumption: The head needs to be facing downwards to see the operating table
+# Warning: This is a highly rudimentary algorithm.
+# the operating table
+
+# Finds operating angle by finding  the angle that takes the max time
+# The roll reading will most likely be impractical in the operating room
+def percentFocus(angles,RPYtype):
+    # angles, angleDist, totalTime
+
+    # acceptableRange is the range about a central angle that is allowed to count as
+    # still facing the operating table
+    # 5 is a dummy value that is overwritten
+    acceptableRange = 5
+
+    # Roll
+    if(RPYtype == 0):
+        global self.ACCEPTABLE_ROLL_RANGE
+        acceptableRange = self.ACCEPTABLE_ROLL_RANGE
+    # Pitch
+    elif(RPYtype == 1):
+        global self.ACCEPTABLE_PITCH_RANGE
+        acceptableRange = self.ACCEPTABLE_PITCH_RANGE
+    # Yaw
+    elif(RPYtype == 2):
+        global self.ACCEPTABLE_YAW_RANGE
+        acceptableRange = self.ACCEPTABLE_YAW_RANGE
+
+    timeTarget = 0
+    global self.trialNum, self.calibrationNo
+    # Check if this is right
+    totSamples = self.trialNum - self.calibrationNo
+
+    operateAngle = np.argmax(angles)
+    timeTarget = 0              # Time facing the target operating field
+    for i in range(2*acceptableRange):
+        iterAngle = operateAngle + i - acceptableRange
+
+        # Need to rewrite so that it wraps around -------------------------XXXXXXXXXXXXXXX
+        if(iterAngle < 0 or iterAngle > 360):
+            continue
+        else:
+            timeTarget += angles[iterAngle]
+
+    return [operateAngle, timeTarget/(self.trialNum-self.calibrationNo)]
+
+
+# #------------------------Blink Sensor Functions--------------------------
+# '''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
+# It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
+# I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
+# #Set port and baudRate when calling this function
+# def initSerialConnection(usb):
+#     usb.timeout = 1
     
-#     # Array of zeros with a fixed size equal to the total number of whole number angles
-#     angleTimes = np.zeros(int(max(angle))-minAngle + 1)
-#     timeAtAng = []
-
-#     # Creates a list with the amount of time spent at each angle (offset by the minumum angle)
-#     for i in range(len(angle)-1):
-#         currentAngle = int(angle[i])- minAngle
-#         angleTimes[currentAngle] += avgTimeStep
-#     # Creates a list of angle values that corresponds to the times above
-#     angleList = [x+minAngle for x in range(len(angleTimes))]
-
-#     return [angleList , angleTimes]
-
-
-
-
-                
-#------------------------Blink Sensor Functions--------------------------
-'''BEN: This is the function that does some custom settings for the serial connection with the Arduino.
-It also starts the csv file where my data will be saved. usb is defined in the main function at the bottom.
-I think you should be able to merge any of your custom functions for the serial connection in with my function.'''
-#Set port and baudRate when calling this function
-def initSerialConnection(usb):
-    usb.timeout = 1
+#     #This hopefully resets the Arduino
+#     usb.setDTR(False)
+#     #Was breaking
+#     #time.sleep(1)
+#     usb.flushInput()
+#     usb.setDTR(True)
     
-    #This hopefully resets the Arduino
-    usb.setDTR(False)
-    #Was breaking
-    #time.sleep(1)
-    usb.flushInput()
-    usb.setDTR(True)
-    
-    buffer = ''
+#     buffer = ''
 
-    #Writes the first line of both files
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
+#     #Writes the first line of both files
+#     self.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
 
 
 #------------------------Main Function-----------------------------------
 
 
 def plotter():
-    global timeAtRoll, timeAtPitch, timeAtYaw, smoothYawAll
     pl.figure(1)
     pl.subplot(411)
-    pl.plot(timeAtRoll)
+    pl.plot(self.timeAtRoll)
     pl.subplot(412)
-    pl.plot(timeAtPitch)
+    pl.plot(self.timeAtPitch)
     pl.subplot(413)
-    pl.plot(timeAtYaw)
+    pl.plot(self.timeAtYaw)
     pl.subplot(414)
-    pl.plot(smoothYawAll[0:])
+    pl.plot(self.smoothYawAll[0:])
     pl.show()
 
 # serialData = [isSuccess,[IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ,roll,pitch,yaw]
@@ -569,15 +596,17 @@ if __name__=='__main__':
 
     usb = Serial('COM6', 57600)
     blinkSensor = bs.BlinkSensor()
+    blinkSensor.CheckKeyPress = False
     blinkSensor.filename = filenameBlink
     bs.initSerialConnection(usb, blinkSensor)
-    csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
+    self.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
     
     '''BEN: This is the loop I'm using right now to keep getting serial data and 
     then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''
     while True:
         try:
-            serialData = receiveSerial()
+            serialData = self.receiveSerial()
+
             #Ensures that no errors are in the serialData array
             #serialData[0] == 1 means that there were no failures
             #serialData[0] == 0 means there was at least one failure
@@ -588,7 +617,6 @@ if __name__=='__main__':
                 if(IMUData[4] == 1):
                     processedData = processIMUData(IMUData)
 
-                    [smoothRoll,smoothPitch,smoothYaw, timeAtRoll,timeAtPitch,timeAtYaw] = processedData
                     try:
                        IR1 = float((serialData[1])[0])
                        blinkSensor.Algorithm(IR1, False)
@@ -597,21 +625,14 @@ if __name__=='__main__':
 
                     # Slows down the cycle enough to prevent divide by zero errors
                     tm.sleep(.001)
-                    # appendData(processedData)
 
-
-#                print (serialData[1])[0]
-#                blinkAlgorithm((serialData[1])[0])
-
-            # getSerial(usb)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  
             plotter()
-            # blinkSensor.saveFile()
-            # blinkSensor.csv_reader(1)
-            # usb.close()
-            # csv_reader(filenameIMU)
-            # saveFile(usb)
-            # csv_reader(outputFile)
+            usb.close()
+            blinkSensor.saveFile()
+            # Remove for the real code
+            blinkSensor.csv_reader(1)
+            usb.close()
             break
             
 
