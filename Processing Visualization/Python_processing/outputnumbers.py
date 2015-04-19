@@ -16,7 +16,7 @@ class SerialData(object):
 	def genData(self):
 		newData = []
 		for i in range(4):
-			newData.append(self.genRandom(1, 104))
+			newData.append(self.genRandom(1, 50))
 		self.dataSet = newData
 
 	def next(self):
