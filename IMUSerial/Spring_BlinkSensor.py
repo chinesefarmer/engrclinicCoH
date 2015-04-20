@@ -451,7 +451,7 @@ class BlinkSensor:
             keyPressVector = keyPressVectorNp.tolist()
             print "Key Press Vector: " + str(keyPressVector)
         blinkArray = self.openBlinks()
-        print blinkArray
+        # print blinkArray
         self.DetectedBlinks = len(blinkArray)
         self.ActualBlinks = len(keyPressVector)
 
