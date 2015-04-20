@@ -8,6 +8,7 @@ if __name__=='__main__':
         BlinkSensor.filename = filename
         BlinkSensor.testFileName = ("Test2.csv")
         BlinkSensor.saveBlinks([],1)
+        BlinkSensor.CheckKeyPress = False
         data = BlinkSensor.csv_reader(2)
         Hour = data[2]
         Minute = data[3]
