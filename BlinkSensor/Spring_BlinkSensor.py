@@ -215,15 +215,6 @@ class BlinkSensor:
             self.minVector.append(self.minutes)
 
             tDif = abs(self.minutes - self.startTime - self.tPrintBlink)
-            if(tDif < 10**-2):
-                print 
-                print "--------------------------------------------------"
-                print (str(len(self.subBlink)) + " blinks in the last " +
-                       str(round(self.tWindow,1)) + " minutes")
-                print "--------------------------------------------------"
-                print
-                return subBlink
-                self.startTime = self.minutes
 
             self.UpdateBlinksInWindow()
         else:
@@ -276,6 +267,17 @@ class BlinkSensor:
         if(test == False):
             data = [str(timeD.hour),str(timeD.minute),str(timeD.second + 0.000001*timeD.microsecond),IR1]
             self.csv_writer(data, 0)
+            if(tDif < 10**-2):
+                print 
+                print "--------------------------------------------------"
+                print (str(len(self.subBlink)) + " blinks in the last " +
+                       str(round(self.tWindow,1)) + " minutes")
+                print "--------------------------------------------------"
+                print
+                self.startTime = self.minutes
+                return len(self.subBlink)
+            else:
+                return 0
 
         #maybe this should return an i value? 
     def PeakAlgorithm(self,i, deriv):
