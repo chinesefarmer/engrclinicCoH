@@ -34,12 +34,12 @@ import numpy as np
 import pylab as pl
 import time as tm
 
-from datetime import *
+#from datetime import *
 
 
 ################################################################################
-class sensorData():
-	def _init_(self, init = 0):
+class sensorData(object):
+	def __init__(self):
 		global filename,filenameIMU,filenameBlink
 		#Writes the raw data for the blink sensor
 		#filename = raw_input('Enter a file name:  ')+ ".csv"
@@ -61,7 +61,7 @@ class sensorData():
 		self.imuSensor = imu.IMUSensor()
 		self.imuSensor.filenameIMU = filenameIMU
 		
-		cell.imuSensor.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
+		self.imuSensor.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
 		
 
 		# Settable values for blinkSensor 
@@ -70,6 +70,7 @@ class sensorData():
 		#How often to print number of blinks in last X minutes, where X is tWindow
 		self.blinkSensor.tPrintBlink = 1.0/6
 
+		self.prevBlinks = 0.0
 		print "initialized Sensor"
 		'''BEN: This is the loop I'm using right now to keep getting serial data and 
 		then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''		
@@ -77,14 +78,14 @@ class sensorData():
 	def next(self):
 		try:
 			# serialData = [success,[IR, AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ]]
-			serialData = self.imuSensor.receiveSerial(self.usb)
+			self.serialData = self.imuSensor.receiveSerial(self.usb)
 
 			#Ensures that no errors are in the serialData array
 			#serialData[0] == 1 means that there were no failures
 			#serialData[0] == 0 means there was at least one failure
-			if(serialData[0] == 1):
+			if(self.serialData[0] == 1):
 				#[roll, pitch, self.nextY ,currTime, ready]
-				IMUData = self.imuSensor.calcRPYData(serialData[1])
+				IMUData = self.imuSensor.calcRPYData(self.serialData[1])
 				# Checks to see if the calibration period has ended
 				if(IMUData[4] == 1):
 					# processedData = [smoothRoll,smoothPitch,smoothYaw,
@@ -95,17 +96,32 @@ class sensorData():
 
 					# Handles the IR Sensor
 					try:
-					   IR1 = float((self.serialData[1])[0])
-					   numRecentBlinks = self.blinkSensor.Algorithm(IR1, False)
-					   if(numRecentBlinks != 0):
+						IR1 = float((self.serialData[1])[0])
+						numRecentBlinks = self.blinkSensor.Algorithm(IR1, False)
+						#if(numRecentBlinks != 0):
+						
+						if(numRecentBlinks != 0):
+							self.prevBlinks = numRecentBlinks
 							print numRecentBlinks
+							outputData = [1,1] + processedData[0:5] + [numRecentBlinks]
+						else:
+							outputData = [1,1] + processedData[0:5] + [self.prevBlinks]
 
+						#print "output withIR"
 					except ValueError:
-					   print "Value Error"
+						outputData = [1,1] + processedData[0:5] + [0]
+						print "Value Error"
 
 					# Slows down the cycle enough to prevent divide by zero errors
 					tm.sleep(.001)
-			return processedData[0:5] + numRecentBlinks 
+				else:
+					#print "imu data not ready"
+					outputData =  [0,0] + [0,0,0,0,0,0]
+			else:
+				print "no sensor data"	
+				outputData =  [0,0] + [0,0,0,0,0,0]
+			#print "my outputs???", outputData
+			return outputData
 		#Run only at the end of the op  
 		except KeyboardInterrupt:
 			self.end()
@@ -128,8 +144,6 @@ class MainFrame(wx.Frame):
 
 		box = wx.StaticBox(self, -1, label = "Control Box")
 		
-		#
-
 		#init GUI
 		sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
 		#resize them
@@ -147,9 +161,24 @@ class MainFrame(wx.Frame):
 		sizerV.AddSpacer(5,5)
 		sizerV.Add(self.Panel3, 0, wx.EXPAND)
 
-		self.displayPanel2 = GraphPanel(self, sensorData)
-		sizerH.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+		sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
+		sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+		# Sensor inputs
+		s = sensorData()
+		self.displayPanel1 = GraphPanel(self, source=s, dataType = 2, title = "Roll data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Roll")
+		sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
 
+		self.displayPanel2 = GraphPanel(self, source=s, dataType = 3, title = "Pitch data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Pitch")
+		sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+
+		self.displayPanel3 = GraphPanel(self, source=s, dataType = 4, title = "Yaw data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Yaw")
+		sizerDisplayV2.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
+
+		self.displayPanel4 = GraphPanel(self, source=s, dataType = 7, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Blink")
+		sizerDisplayV2.Add(self.displayPanel4, 1, wx.EXPAND|wx.ALL)
+		
+		sizerH.Add(sizerDisplayV1, 0, wx.EXPAND)
+		sizerH.Add(sizerDisplayV2, 0, wx.EXPAND)
 		#self.displayPanel = GraphPanel(self,genIRserialData)
 		#self.displayPanel = ColorMapPanel(self)
 		
@@ -342,19 +371,23 @@ class GraphPanel(wx.Panel):
 	""" The graphing frames frame of the application
 	"""
 	
-	def __init__(self, parent, datagen):
+	def __init__(self, parent, source=sensorData, dataType = 3, title = "Display Data", xAxisLabel = "x axis", yAxisLabel = "y axis"):
 		wx.Panel.__init__(self,parent)
-		
+		self.dataType = dataType
 		#**************************
 		#Remember, this comes in the form [sensor, IR2, IR3, light]
 		#self.datagen = genIRserialData()
-		self.datagen = datagen(1)
+		self.datagen = source
 		self.data = self.datagen.next()
 		#**************************
 		self.time = [datetime.datetime.now().time()]
-		self.sensorVal = [self.data[0]]
+		self.sensorVal = [self.data[self.dataType]]
+		#print self.sensorVal
 		#self.sensorVal2 = [self.data[1]]
-		
+		self.title = title
+		self.xAxisLabel = xAxisLabel
+		self.yAxisLabel = yAxisLabel
+
 		self.safe = False
 		self.paused = False
 		self.calibrate = True
@@ -390,9 +423,9 @@ class GraphPanel(wx.Panel):
 		self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
 		self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
-		self.calibrate_button = wx.Button(self, -1, "Calibrate")
-		self.Bind(wx.EVT_BUTTON, self.on_calibrate_button, self.calibrate_button)
-		
+		#self.calibrate_button = wx.Button(self, -1, "Calibrate")
+		#self.Bind(wx.EVT_BUTTON, self.on_calibrate_button, self.calibrate_button)
+		"""
 		self.cb_grid = wx.CheckBox(self, -1, 
 			"Show Grid",
 			style=wx.ALIGN_RIGHT)
@@ -404,16 +437,17 @@ class GraphPanel(wx.Panel):
 			style=wx.ALIGN_RIGHT)
 		self.Bind(wx.EVT_CHECKBOX, self.on_cb_xlab, self.cb_xlab)        
 		self.cb_xlab.SetValue(True)
-		
+		"""
 		self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 		self.hbox1.Add(self.pause_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
+		"""
 		self.hbox1.AddSpacer(20)
 		self.hbox1.Add(self.calibrate_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
 		self.hbox1.AddSpacer(20)
 		self.hbox1.Add(self.cb_grid, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
 		self.hbox1.AddSpacer(10)
 		self.hbox1.Add(self.cb_xlab, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
-		
+		"""
 		self.hbox2 = wx.BoxSizer(wx.HORIZONTAL)
 		self.hbox2.Add(self.xmin_control, border=5, flag=wx.ALL)
 		self.hbox2.Add(self.xmax_control, border=5, flag=wx.ALL)
@@ -441,11 +475,11 @@ class GraphPanel(wx.Panel):
 		#self.axes_sensor2 = self.fig.add_subplot(122)
 		self.axes_sensor1.set_axis_bgcolor('black')
 		#self.axes_sensor2.set_axis_bgcolor('black')
-		self.axes_sensor1.set_title('Percent time blinking', size=12)
+		self.axes_sensor1.set_title(self.title, size=12)
 		#self.axes_sensor2.set_title('Head Positioning', size=12)
 		
-		self.axes_sensor1.set_xlabel("Time (seconds)", size = 8)
-		self.axes_sensor1.set_ylabel("Percent time blinking", size = 8)
+		self.axes_sensor1.set_xlabel(self.xAxisLabel, size = 8)
+		self.axes_sensor1.set_ylabel(self.yAxisLabel, size = 8)
 
 		#self.axes_sensor2.set_xlabel("Time (seconds)" , size = 8)
 		#self.axes_sensor2.set_ylabel("Percent time focusing on field" , size = 8)
@@ -535,8 +569,8 @@ class GraphPanel(wx.Panel):
 		# returns a list over which one needs to explicitly 
 		# iterate, and setp already handles this.
 		#  
-		pl.setp(self.axes_sensor1.get_xticklabels(), 
-			visible=self.cb_xlab.IsChecked())
+		#pl.setp(self.axes_sensor1.get_xticklabels(), 
+		#	visible=self.cb_xlab.IsChecked())
 		
 		self.plot_sensor1.set_xdata(np.arange(len(self.sensorVal)))
 		self.plot_sensor1.set_ydata(np.array(self.sensorVal))
@@ -582,347 +616,22 @@ class GraphPanel(wx.Panel):
 		
 		if not self.paused:
 			try:	
-				self.dataAppend = self.datagen.next()
-				sensorAppend = self.dataAppend[0]
-				#sensor2Append = self.dataAppend[3]
-				self.sensorVal.append(sensorAppend)
-				self.time.append(datetime.datetime.now().time())
-				#self.sensorVal2.append(sensor2Append)
-				"""
-				#Running average of previous three light values
-				if self.safe == True:
-					if self.avg3Idx < 3:
-						self.avg3 = self.avg3 + self.light[-1]
-						self.avg3Idx = self.avg3Idx + 1
-						self.safe == True
-					elif self.avg3Idx == 3:
-						self.avg3_cur = (self.avg3 + self.light[-1])/3.0
-						self.avg3Idx = 1
-						self.avg3 = 0
-						self.safe == True
-
-					#If the current light value is greater than +- 1 from the avg
-					if (LightAppend > self.avg3_cur + 2) or (LightAppend < self.avg3_cur - 2):
-						self.glance.append(250)
-					else:
-						self.glance.append(180)
+				self.data = self.datagen.next()
+				#print "recieved data", self.data
+				if(self.data[0] != 1):
+					pass
 				else:
-					self.glance.append(180)
-						
-					
-				#Now add the current light value
-				self.light.append(LightAppend)
-				
-				
-				#If we calibrate, average 10 data points
-				if self.calibrate:
-					#If we're recalibrating, reset the average to 0
-					if self.calibrateIdx == 1:
-						self.average = 0
-					if self.calibrateIdx < 10:
-						self.average = self.average + sensorAppend
-						self.calibrateIdx = self.calibrateIdx + 1
-					else:
-						self.average = self.average/10.0
-						self.calibrate = False
-						self.calibrateIdx = 1
-					#While calibrating sensor2 will be 0
-					self.sensor2.append(0)
-					self.safe = True
-				else:
-					#If sensor is twice the calibrated baseline, it's likely a blink
-					if sensorAppend > self.average + 1000:
-						sensor2Data = self.average + 1000
-					else:
-						sensor2Data = self.average
-					self.sensor2.append(sensor2Data)
-					"""
-				self.draw_plot()
+					#print "self.data", self.data
+					#print "place", self.dataType
+					sensorAppend = self.data[self.dataType]
+					#print "recieved Data", sensorAppend
+					#sensor2Append = self.dataAppend[3]
+					self.sensorVal.append(sensorAppend)
+					self.time.append(datetime.datetime.now().time())
+					#self.sensorVal2.append(sensor2Append)
+					self.draw_plot()
 			except KeyboardInterrupt:
 				pass
-
-
-################################################################################
-class ColorMapPanel(wx.Panel):
-	""" The graphing frames frame of the application
-	"""
-	
-	def __init__(self, parent):
-		wx.Panel.__init__(self,parent)
-		
-		#**************************
-		#Remember, this comes in the form [sensor, IR2, IR3, light]
-		self.datagen = genIRserialData()
-		self.data = self.datagen.next()
-		#**************************
-		self.time = [datetime.datetime.now().time()]
-		self.sensor = [self.data[0]]
-		self.lightAvg = 0
-		self.light = [self.data[3]]
-		self.sensor2 = []
-
-		self.glance = []
-		self.average = 0
-		self.avg3 = 0
-		self.avg3_cur = self.light[0]
-		
-		self.safe = False
-		self.paused = False
-		self.calibrate = True
-		self.calibrateIdx = 1
-		self.avg3Idx = 1
-		
-		self.create_main_panel()
-		
-		self.xmin = 0
-		self.xmax = 100
-		self.ymin = 0
-		self.ymax = 10
-
-		self.redraw_timer = wx.Timer(self)
-		self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-		self.redraw_timer.Start(1) #refresh rate in ms
-
-	def create_menu(self):
-		savePlotBtn =  wx.Button(self, label="Save plot to file")
-		savePlotBtn.Bind(wx.EVT_BUTTON, self.on_save_plot)
-		menu_file.AppendSeparator()
-		m_save = menu_file.Append(-1, label="Save data")
-		self.Bind(wx.EVT_MENU, self.on_save_data, m_save)
-
-
-	def create_main_panel(self):
-		#self.panel = wx.Panel(self)
-
-		self.init_plot()
-		
-		self.canvas = FigCanvas(self, -1, self.fig)
-
-		self.vbox = wx.BoxSizer(wx.VERTICAL)
-		self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)  
-		self.SetSizer(self.vbox)
-		self.vbox.Fit(self)
-
-	def create_status_bar(self):
-		self.statusbar = self.CreateStatusBar()
-
-	def init_plot(self):
-		self.dpi = 100
-		self.fig = Figure((3.0, 3.0), dpi=self.dpi)
-
-		self.colorPlot_sensor1 = self.fig.add_subplot(121)
-		self.colorPlot_sensor2 = self.fig.add_subplot(122)
-		# self.colorPlot_sensor1 = self.fig.add_axes([0.05, 0.80, 0.9, 0.15])
-		# self.colorPlot_sensor2 = self.fig.add_axes([0.05, 0.15, 0.9, 0.15])
-
-
-		# #self.axes_sensor1.
-		# # pl.setp(self.axes_sensor1.get_xticklabels(), fontsize=8)
-		# # pl.setp(self.axes_sensor1.get_yticklabels(), fontsize=8)
-		# # pl.setp(self.axes_sensor2.get_xticklabels(), fontsize=8)
-		# # pl.setp(self.axes_sensor2.get_yticklabels(), fontsize=8)
-
-		# # plot the data as a line series, and save the reference 
-		# # to the plotted line series
-		# #
-		# print "init", self.data
-		#x1, y1 = np.linspace(self.xmin(), self.xmax(), 100), np.linspace(self.ymin(), self.ymax(), 100)
-		#x1, y1 = np.meshgrid(xi, yi)
-		#gradient = np.vstack((gradient, gradient))
-		self.colorPlot_sensor1
-		imshow()
-		# # Set the colormap and norm to correspond to the data for which
-		# # the colorbar will be used
-		# cmap = mpl.cm.cool
-		# norm = mpl.colors.Normalize(vmin=5, vmax=10)
-
-		# cb1 = mpl.colorbar.ColorbarBase(self.colorPlot_sensor1, cmap=cmap,
-		#                                    norm=norm,
-		#                                    orientation='horizontal')
-		# bounds = [1, 2, 4, 7, 8]
-		# norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-		# cb2 = mpl.colorbar.ColorbarBase(self.colorPlot_sensor2, cmap=cmap,
-		#                                      norm=norm,
-		#                                      # to use 'extend', you must
-		#                                      # specify two extra boundaries:
-		#                                      boundaries=[0]+bounds+[13],
-		#                                      extend='both',
-		#                                      ticks=bounds, # optional
-		#                                      spacing='proportional',
-		#                                      orientation='horizontal')
-		# cb2.set_label('Discrete intervals, some other units')
-		
-		
-		self.canvas.draw()
-
-	def draw_plot(self):
-		""" Redraws the plot
-		"""
-		# when xmin is on auto, it "follows" xmax to produce a 
-		# sliding window effect. therefore, xmin is assigned after
-		# xmax.
-		#
-		# if self.xmax_control.is_auto():
-		# 	xmax = len(self.sensor) if len(self.sensor) > 50 else 50
-		# else:
-		# 	xmax = int(self.xmax_control.manual_value())
-			
-		# if self.xmin_control.is_auto():            
-		# 	xmin = xmax - 50
-		# else:
-		# 	xmin = int(self.xmin_control.manual_value())
-
-
-		# for ymin and ymax, find the minimal and maximal values
-		# in the data set and add a mininal margin.
-		# 
-		# note that it's easy to change this scheme to the 
-		# minimal/maximal value in the current display, and not
-		# the whole data set.
-		# 
-		# if self.ymin_control.is_auto():
-		# 	ymin = round(min(self.sensor), 0) - 1
-		# else:
-		# 	ymin = int(self.ymin_control.manual_value())
-		
-		# if self.ymax_control.is_auto():
-		# 	ymax = round(max(self.sensor), 0) + 1
-		# else:
-		# 	ymax = int(self.ymax_control.manual_value())
-
-		# self.axes_sensor1.set_xbound(lower=xmin, upper=xmax)
-		# self.axes_sensor1.set_ybound(lower=ymin, upper=ymax)
-		# self.axes_sensor2.set_xbound(lower=xmin, upper=xmax)
-		# #****Change this later
-		# self.axes_sensor2.set_ybound(lower=round(min(min(self.light),min(self.glance)),0)-1,
-		# 								 upper=round(max(max(self.light),max(self.glance)),0)+1)
-		
-
-
-		# Using setp here is convenient, because get_xticklabels
-		# returns a list over which one needs to explicitly 
-		# iterate, and setp already handles this.
-		#  
-		pl.setp(self.axes_sensor1.get_xticklabels(), 
-			visible=self.cb_xlab.IsChecked())
-		
-		
-		cmap = mpl.cm.cool
-		norm = mpl.colors.Normalize(vmin=5, vmax=10)
-
-		cb1 = mpl.colorbar.ColorbarBase(self.colorPlot_sensor1, cmap=cmap,
-										   norm=norm,
-										   orientation='horizontal')
-		# bounds = [1, 2, 4, 7, 8]
-		# norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-		# cb2 = mpl.colorbar.ColorbarBase(self.colorPlot_sensor2, cmap=cmap,
-		#                                      norm=norm,
-		#                                      # to use 'extend', you must
-		#                                      # specify two extra boundaries:
-		#                                      boundaries=[0]+bounds+[13],
-		#                                      extend='both',
-		#                                      ticks=bounds, # optional
-		#                                      spacing='proportional,'
-		#                                      orientation='horizontal')
-		
-		# cb2.set_label('Discrete intervals, some other units')
-		 
-		self.canvas.draw()
-	
-	def on_pause_button(self, event):
-		self.paused = not self.paused
-
-	def on_calibrate_button(self, event):
-		self.calibrate = True
-	
-	def on_update_pause_button(self, event):
-		label = "Resume" if self.paused else "Pause"
-		self.pause_button.SetLabel(label)
-	
-	def on_cb_grid(self, event):
-		self.draw_plot()
-	
-	def on_cb_xlab(self, event):
-		self.draw_plot()
-	
-	def on_save_plot(self, event):
-		file_choices = "PNG (*.png)|*.png"
-		
-		dlg = wx.FileDialog(
-			self, 
-			message="Save plot as...",
-			defaultDir=os.getcwd(),
-			defaultFile="plot.png",
-			wildcard=file_choices,
-			style=wx.SAVE)
-		
-		if dlg.ShowModal() == wx.ID_OK:
-			path = dlg.GetPath()
-			self.canvas.print_figure(path, dpi=self.dpi)
-			self.flash_status_message("Saved to %s" % path)
-
-	def on_redraw_timer(self, event):
-		# if paused do not add data, but still redraw the plot
-		# (to respond to scale modifications, grid change, etc.)
-		
-		if not self.paused:
-			try:	
-				self.dataAppend = self.datagen.next()
-				sensorAppend = self.dataAppend[0]
-				LightAppend = self.dataAppend[3]
-				self.sensor.append(sensorAppend)
-				self.time.append(datetime.datetime.now().time())
-				#Running average of previous three light values
-				if self.safe == True:
-					if self.avg3Idx < 3:
-						self.avg3 = self.avg3 + self.light[-1]
-						self.avg3Idx = self.avg3Idx + 1
-						self.safe == True
-					elif self.avg3Idx == 3:
-						self.avg3_cur = (self.avg3 + self.light[-1])/3.0
-						self.avg3Idx = 1
-						self.avg3 = 0
-						self.safe == True
-
-					#If the current light value is greater than +- 1 from the avg
-					if (LightAppend > self.avg3_cur + 2) or (LightAppend < self.avg3_cur - 2):
-						self.glance.append(250)
-					else:
-						self.glance.append(180)
-				else:
-					self.glance.append(180)
-						
-					
-				#Now add the current light value
-				self.light.append(LightAppend)
-				
-				
-				#If we calibrate, average 10 data points
-				if self.calibrate:
-					#If we're recalibrating, reset the average to 0
-					if self.calibrateIdx == 1:
-						self.average = 0
-					if self.calibrateIdx < 10:
-						self.average = self.average + sensorAppend
-						self.calibrateIdx = self.calibrateIdx + 1
-					else:
-						self.average = self.average/10.0
-						self.calibrate = False
-						self.calibrateIdx = 1
-					#While calibrating blink will be 0
-					self.sensor2.append(0)
-					self.safe = True
-				else:
-					#If sensor is twice the calibrated baseline, it's likely a blink
-					if sensorAppend > self.average + 1000:
-						sensor2Data = self.average + 1000
-					else:
-						sensor2Data = self.average
-					self.sensor2.append(sensor2Data)
-				self.draw_plot()
-			except KeyboardInterrupt:
-				pass
-		
 ################################################################################
 class BoundControlBox(wx.Panel):
 	""" A static box with a couple of radio buttons and a text
@@ -972,7 +681,7 @@ class BoundControlBox(wx.Panel):
 def runCamera(name, saving=False):
 	stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 
-	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + name + '.mp4}\'}\"' #C:\\\Users\\\jyang\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
+	save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'#name + '.mp4}\'}\"' #
 
 	#save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
 
