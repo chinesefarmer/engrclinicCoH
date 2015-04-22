@@ -131,8 +131,8 @@ class sensorData(object):
 		self.usb.close()
 		self.blinkSensor.saveFile()
 
-		# Remove for the real code
-		self.blinkSensor.csv_reader(1)
+		pass
+		
 
 
 ################################################################################
@@ -141,22 +141,34 @@ class MainFrame(wx.Frame):
 		wx.Frame.__init__(self,parent, title=title, size=(300,400))
 		# initialize menu bar
 		self.CreateStatusBar() # A Statusbar in the bottom of the window
+		#resize them
+		sizerH = wx.BoxSizer(wx.HORIZONTAL)
+
 
 		box = wx.StaticBox(self, -1, label = "Control Box")
 		
 		#init GUI
 		sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
-		#resize them
-		sizerH = wx.BoxSizer(wx.HORIZONTAL)
+
+
+		StopBtn = wx.Button(self, label="Stop All Sensors")
+		StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
+		SaveBtn = wx.Button(self, label= "Save All Data")
+		SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
+		#sizerH = wx.BoxSizer(wx.VERTICAL)
+		sizerV.Add(StopBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
+		sizerV.AddSpacer(5,5)
+		sizerV.Add(SaveBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
 		
 		#add widgets
 		self.Panel1 = IMUPanel(self)
 		sizerV.Add(self.Panel1, 0, wx.EXPAND)
 		
+		"""
 		self.Panel2 = BlinkPanel(self)
 		sizerV.AddSpacer(5,5)
 		sizerV.Add(self.Panel2, 0, wx.EXPAND)
-		
+		"""
 		self.Panel3 = CameraPanel(self)
 		sizerV.AddSpacer(5,5)
 		sizerV.Add(self.Panel3, 0, wx.EXPAND)
@@ -164,17 +176,17 @@ class MainFrame(wx.Frame):
 		sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
 		sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 		# Sensor inputs
-		s = sensorData()
-		self.displayPanel1 = GraphPanel(self, source=s, dataType = 2, title = "Roll data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Roll")
+		self.s = sensorData()
+		self.displayPanel1 = GraphPanel(self, source=self.s, dataType = 2, title = "Roll data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Roll")
 		sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
 
-		self.displayPanel2 = GraphPanel(self, source=s, dataType = 3, title = "Pitch data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Pitch")
+		self.displayPanel2 = GraphPanel(self, source=self.s, dataType = 3, title = "Pitch data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Pitch")
 		sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
 
-		self.displayPanel3 = GraphPanel(self, source=s, dataType = 4, title = "Yaw data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Yaw")
+		self.displayPanel3 = GraphPanel(self, source=self.s, dataType = 4, title = "Yaw data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Yaw")
 		sizerDisplayV2.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
 
-		self.displayPanel4 = GraphPanel(self, source=s, dataType = 7, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Blink")
+		self.displayPanel4 = GraphPanel(self, source=self.s, dataType = 7, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Blink")
 		sizerDisplayV2.Add(self.displayPanel4, 1, wx.EXPAND|wx.ALL)
 		
 		sizerH.Add(sizerDisplayV1, 0, wx.EXPAND)
@@ -208,6 +220,30 @@ class MainFrame(wx.Frame):
 		#menuItem = filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
 		
 		self.Show(True)
+
+	def stopAll(self, event=None):
+		"""stop or start all plots"""
+		self.displayPanel1.paused = False if self.displayPanel1.paused else True
+		label = "Resume" if (~self.displayPanel1.paused) else "Pause"
+		self.displayPanel1.pause_button.SetLabel(label)
+
+		self.displayPanel2.paused = False if self.displayPanel2.paused else True
+		label = "Resume" if (~self.displayPanel1.paused) else "Pause"
+		self.displayPanel2.pause_button.SetLabel(label)
+
+		self.displayPanel3.paused = False if self.displayPanel3.paused else True
+		label = "Resume" if (~self.displayPanel1.paused) else "Pause"
+		self.displayPanel3.pause_button.SetLabel(label)
+
+		self.displayPanel4.paused = False if self.displayPanel4.paused else True
+		label = "Resume" if (~self.displayPanel1.paused) else "Pause"
+		self.displayPanel4.pause_button.SetLabel(label)
+
+		pass
+
+	def saveAll(self, event=None):
+		"""Save all the data"""
+		self.s.end()
 
 	def onQuit(self, event=None):
 		"""Exit"""
@@ -347,9 +383,6 @@ class BlinkPanel(wx.Panel):
 		StopBtn = wx.Button(self, label="Stop Blink Sensor")
 		StopBtn.Bind(wx.EVT_BUTTON, self.stopBlink )
 
-		MsgBtn = wx.Button(self, label="Show Live Plot")
-		MsgBtn.Bind(wx.EVT_BUTTON, self.OnMsgBtn )
-
 		sizerH = wx.BoxSizer(wx.VERTICAL)
 		sizerH.Add(StopBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
 		sizerH.AddSpacer(5,5)
@@ -360,6 +393,7 @@ class BlinkPanel(wx.Panel):
 
 	def stopBlink(self, event=None):
 		"""Do nothing."""
+	
 		pass
 
 	def OnMsgBtn(self, event=None):
