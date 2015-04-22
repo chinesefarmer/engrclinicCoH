@@ -91,13 +91,13 @@ class BlinkSensor:
     def __init__(self):
         #The following are parameters that change what the algorithm defines as a blink
         #For a blink that looks like a valley, the negative slope must be less than:
-        self.negSlopeThresh = -6000
+        self.negSlopeThresh = -8500
         #For a blink that looks like a peak, the positive slope must be greater than:
-        self.posSlopeThresh = 13000
+        self.posSlopeThresh = 6700
         #The peak must be at least this tall to be considered a blink and not noise
-        self.PeakBlinkHeight = 430
+        self.PeakBlinkHeight = 399
         #The valley must be at least this deep to be considered a blink and not noise
-        self.ValleyBlinkHeight = 1000
+        self.ValleyBlinkHeight = 400
 
         #How often to calculate the number of blinks, in minutes
         self.tWindow = 1.0/3
@@ -108,9 +108,10 @@ class BlinkSensor:
         #at the end of the trial it is saved to filename
         self.bogusFile = 'bogus.csv'
         self.filename = ''
+        self.testFileName = ''
         #Set equal to True if you are running KeyPress.py at the same time to record when the
         #blinks are actually occurring.
-        self.CheckKeyPress = True
+        self.CheckKeyPress = False
         #Vector that holds the raw IR LED values
         self.IRVector = []
         #Vector that holds time values in seconds, used for the algorithm calculations
@@ -151,6 +152,7 @@ class BlinkSensor:
         self.valley = 0
         self.negativeSlope = False
         self.positiveSlope = False
+        self.possibleFalseNegativeSlope = 0
         self.positive = 0
         self.negative = 0
         self.ActualBlinks = 0
@@ -179,6 +181,8 @@ class BlinkSensor:
         self.negative = 0
         self.negativeSlope = False
         self.positiveSlope = False
+        self.lengthOfValley = 0
+        self.possibleFalseNegativeSlope = 0
         
         #Clears out all except the two most recent values
         self.IRVector = self.IRVector[i-1:]
@@ -207,19 +211,8 @@ class BlinkSensor:
             timeD = datetime.now().time()
             self.minutes = timeD.hour*60 + timeD.minute + (timeD.second + 0.000001*timeD.microsecond)/60
             seconds = (timeD.second + 0.000001*timeD.microsecond)
-            # print "Seconds: "+str(seconds)
             self.secVector.append(seconds)
             self.minVector.append(self.minutes)
-
-            tDif = abs(self.minutes - self.startTime - self.tPrintBlink)
-            if(tDif < 10**-2):
-                print 
-                print "--------------------------------------------------"
-                print (str(len(self.subBlink)) + " blinks in the last " +
-                       str(round(self.tWindow,1)) + " minutes")
-                print "--------------------------------------------------"
-                print 
-                self.startTime = self.minutes
 
             self.UpdateBlinksInWindow()
         else:
@@ -234,7 +227,6 @@ class BlinkSensor:
             i = len(self.IRVector)-1
             
             #Take the derivative
-            # print "Sec[i]: " + str(self.secVector[i]) + " and Sec[i-1]: " + str(self.secVector[i-1])
             deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
 
             #If it's a positive slope above the threshold, start tracking
@@ -273,6 +265,18 @@ class BlinkSensor:
         if(test == False):
             data = [str(timeD.hour),str(timeD.minute),str(timeD.second + 0.000001*timeD.microsecond),IR1]
             self.csv_writer(data, 0)
+            tDif = abs(self.minutes - self.startTime - self.tPrintBlink)
+            if(tDif < 10**-2):
+                #print 
+                #print "--------------------------------------------------"
+                #print (str(len(self.subBlink)) + " blinks in the last " +
+                #       str(round(self.tWindow,1)) + " minutes")
+                #print "--------------------------------------------------"
+                #print
+                self.startTime = self.minutes
+                return len(self.subBlink)
+            else:
+                return 0
 
         #maybe this should return an i value? 
     def PeakAlgorithm(self,i, deriv):
@@ -281,51 +285,12 @@ class BlinkSensor:
         #considered the peak
         if(self.IRVector[i-1] > self.peak):
             self.peak = self.IRVector[i-1]
-        
-        if(deriv < 0):
-            #If at any point the running average is "flat", meaning the slope is
-            #less than the positive threshold and greater than the negative one,
-            #that likely means we're at the end of the blink
-            if(deriv > self.negSlopeThresh):
-                if debug:
-                    print "Nearing end of peak at "+str(self.secVector[i])+" sec w/ deriv "+ str(deriv)
-                self.negative = self.negative + 1
-                if(self.negative > self.n):
-                    self.blinkEndSec = self.secVector[i-2]
-                    self.blinkEndMinutes = self.minVector[i-2]
-                    self.endIR = self.IRVector[i-2]
-                        #Would this be a good spot to clear out the vector?
-                    if((self.peak-self.endIR) > self.PeakBlinkHeight and
-                       (self.peak-self.startIR) > self.PeakBlinkHeight):
-                        self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
-                        self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
-                        if debug:
-                            print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
-                        print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),3)) + " sec"
-                        
-                    #It's not a blink unless the height is large enough, set by the BlinkHeight
-                    #variable
-                    else:
-                        if debug:
-                            print "Peak ignored at " + str(self.secVector[i]) + " sec, height not large enough"
-
-                    self.clearParameters(i)                                                            
-                else:
-                    self.negativeSlope = True
-            else:
-                if debug:
-                    print ("Switching from tracking pos to neg slope at " +str(self.secVector[i])
-                           +" sec with deriv "+str(deriv))
-                self.negativeSlope = True
-                
-        elif(self.negativeSlope):
+            
+        if(self.negativeSlope):
             if debug:
                 print "Inside elif(negativeSlope) the deriv is "+str(deriv)+" and positive = "+str(self.positive)
-            if(self.positive == 0):
-                self.positive = 1
-            elif(self.positive == 1):
-                self.positive = 2
-            else:
+            self.positive = self.positive + 1
+            if(self.positive > 4):
                 self.blinkEndSec = self.secVector[i-2]
                 self.blinkEndMinutes = self.minVector[i-2]
                 self.endIR = self.IRVector[i-2]
@@ -344,6 +309,56 @@ class BlinkSensor:
                                " not large enough, inside elif(negativeSlope)")
 
                 self.clearParameters(i)
+        elif(deriv < 0):
+            #If at any point the running average is "flat", meaning the slope is
+            #less than the positive threshold and greater than the negative one,
+            #that likely means we're at the end of the blink
+            if(deriv > self.negSlopeThresh):
+                if debug:
+                    print "Nearing end of peak at "+str(self.secVector[i])+" sec w/ deriv "+ str(deriv)
+                self.negative = self.negative + 1
+                #Be careful as to what self.negative must be greater than here. This is sensitive
+                if(self.negative > self.n+3):
+                    self.blinkEndSec = self.secVector[i-2]
+                    self.blinkEndMinutes = self.minVector[i-2]
+                    self.endIR = self.IRVector[i-2]
+                        #Would this be a good spot to clear out the vector?
+                    if((self.peak-self.endIR) > self.PeakBlinkHeight and
+                       (self.peak-self.startIR) > self.PeakBlinkHeight):
+                        self.saveBlinks([[self.blinkStartSec, self.blinkEndSec]],2)
+                        self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
+                        if debug:
+                            print "Blink from : " + str(self.blinkStartSec) + " sec to "+str(self.blinkEndSec)+" sec"
+                        print "Length of blink: " + str(round((self.blinkEndSec-self.blinkStartSec),3)) + " sec"
+                        
+                    #It's not a blink unless the height is large enough, set by the BlinkHeight
+                    #variable
+                    else:
+                        if debug:
+                            height = min(self.peak-self.endIR,self.peak-self.startIR)
+                            print ("Peak ignored at " + str(self.secVector[i]) +
+                                   " sec, height of " + str(height)+" not large enough")
+
+                    self.clearParameters(i)                                                            
+                else:
+                    #It's possible some noise causes a steep negative slope. I don't want to trigger switching
+                    #from positive to negative slope in this case, so I need this negative slope to happen twice to switch
+                    self.possibleFalseNegativeSlope = self.possibleFalseNegativeSlope +1
+                    if(self.possibleFalseNegativeSlope > 2):
+                        if debug:
+                            print ("Switching from tracking pos to neg slope at " +str(self.secVector[i])
+                                   +" sec with deriv "+str(deriv))
+                        self.negativeSlope = True
+            else:
+                #It's possible some noise causes a steep negative slope. I don't want to trigger switching
+                #from positive to negative slope in this case, so I need this negative slope to happen twice to switch
+                self.possibleFalseNegativeSlope = self.possibleFalseNegativeSlope +1
+                if(self.possibleFalseNegativeSlope > 2):
+                    if debug:
+                        print ("Switching from tracking pos to neg slope at " +str(self.secVector[i])
+                               +" sec with deriv "+str(deriv))
+                    self.negativeSlope = True
+                
 
 
     def ValleyAlgorithm(self,i, deriv):
@@ -357,12 +372,25 @@ class BlinkSensor:
             #If the derivative is less than the positive threshold, that means
             #we've likely flattened out
             if(deriv < self.posSlopeThresh):
+                self.endIR = self.IRVector[i-2]
                 if debug:
                     print "Nearing end of valley at "+str(self.secVector[i])+" sec"
                 self.positive = self.positive + 1
+                if((self.positive > self.n-2) and (self.negBlinkPoints <= self.n-1)):
+                    if debug:
+                            print ("Blink ignored since only "+str(self.negBlinkPoints)+
+                                   " points in the negative slope. Time stamp: "+  str(self.secVector[i]))
+                    self.clearParameters(i)
+                #If this is a false alarm, or a dip before a peak blink, then abort!
+                elif((self.startIR - self.valley + 200) < (self.endIR - self.valley)):
+                    if debug:
+                        print ("Blink ignored since the exit slope is way higher than the entering slope" +
+                               " meaning this might be the beginning of a peak blink, not valley at "+
+                               str(self.secVector[i])+"sec")
+                    self.clearParameters(i)
                 #If there's been a positive slope for n times, the blink is over
-                if(((self.positive > self.n) and (self.endIR - self.valley > self.ValleyBlinkHeight )and ((self.startIR - self.valley) > self.ValleyBlinkHeight))
-                or (((self.positive > self.n + 7) and (self.endIR - self.valley) > self.ValleyBlinkHeight) and ((self.startIR - self.valley) > self.ValleyBlinkHeight))):
+                elif((self.positive > self.n) and (self.endIR - self.valley > self.ValleyBlinkHeight )
+                   and ((self.startIR - self.valley) > self.ValleyBlinkHeight)):
                     self.blinkEndSec = self.secVector[i-2]
                     self.blinkEndMinutes = self.minVector[i-2]
                     self.endIR = self.IRVector[i-2]
@@ -376,15 +404,31 @@ class BlinkSensor:
                         self.AddBlinksInWindow([self.blinkStartMinutes, self.blinkEndMinutes])
                     else:
                         if debug:
-                            print "Blink ignored since only "+str(self.negBlinkPoints)+" points in the negative slope. Time stamp: "+  str(self.secVector[i])
+                            print ("Blink ignored since only "+str(self.negBlinkPoints)+
+                                   " points in the negative slope. Time stamp: "+  str(self.secVector[i]))
 
                     self.clearParameters(i)
 
                 #Otherwise note that we have a positive slope right now
                 else:
+                    if(self.positive > 2):
+                        self.positive = self.positive + 1
                     self.positiveSlope = True
             else:
-                self.positiveSlope = True
+                self.endIR = self.IRVector[i-2]
+                if((self.startIR - self.valley + 200) < (self.endIR - self.valley)):
+                    if debug:
+                        print ("Blink ignored since the exit slope is way higher than the entering slope" +
+                               " meaning this might be the beginning of a peak blink, not valley at "+
+                               str(self.secVector[i])+"sec")
+                    self.clearParameters(i)
+                elif((self.positive > self.n-2) and (self.negBlinkPoints <= self.n-1)):
+                    if debug:
+                            print ("Blink ignored since only "+str(self.negBlinkPoints)+
+                                   " points in the negative slope. Time stamp: "+  str(self.secVector[i]))
+                    self.clearParameters(i)
+                else:
+                    self.positiveSlope = True
         #If the slope is negative after we've been coming out of the valley, that
         #means the blink is over. positiveSlope just means that previoulsy there was a trend of a positive
         #slope, so if for some reason the slope is negative again, that means the blink is over.
@@ -451,7 +495,7 @@ class BlinkSensor:
             keyPressVector = keyPressVectorNp.tolist()
             print "Key Press Vector: " + str(keyPressVector)
         blinkArray = self.openBlinks()
-        # print blinkArray
+        print blinkArray
         self.DetectedBlinks = len(blinkArray)
         self.ActualBlinks = len(keyPressVector)
 
@@ -509,6 +553,44 @@ class BlinkSensor:
 
             writer.writerows(all)
 
+    def saveTestFile(self):
+        blinkArray = self.openBlinks()
+        print blinkArray
+        self.DetectedBlinks = len(blinkArray)
+
+        with open(self.filename, 'rb') as input, open((self.testFileName), 'wb') as output:
+            writer = csv.writer(output, delimiter=',')
+            reader = csv.reader(input, delimiter = ',')
+            blink = False
+            all = []
+            row = next(reader)
+
+            if(len(blinkArray)>0):
+                currentBlink = blinkArray[0]
+            all.append(row)
+            
+            for k, row in enumerate(reader):
+                if(len(blinkArray)==0):
+                    row[4] = 0
+                else:
+                    rowVector = row[0].split(',')
+                    if(float(row[2]) == currentBlink[0]):
+                        blink = True
+                        row[4] = row[3]
+                    elif(currentBlink[1] == float(row[2])):
+                        blink = False
+                        row[4] = row[3]
+                        blinkArray = blinkArray[1:]
+                        if(len(blinkArray)!=0):
+                            currentBlink = blinkArray[0]
+                    elif(blink):
+                        row[4] = row[3]
+                    else:
+                        row[4] = 0
+                all.append(row)
+
+            writer.writerows(all)
+
 
     #tWindow must be in minutes (e.g. 60 minutes instead of 1 hour)
     def AddBlinksInWindow(self,newBlink):
@@ -533,7 +615,14 @@ class BlinkSensor:
     #mode == 1 means it will plot
     #mode == 2 retrieves data needed for test mode
     def csv_reader(self, mode):
-        with open(self.filename, 'r') as csv_file:
+        if(mode == 1):
+            if(test):
+                inputFile = self.testFileName
+            else:
+                inputFile = self.filename
+        else:
+            inputFile = self.filename
+        with open(inputFile, 'r') as csv_file:
             reader = csv.reader(csv_file, delimiter = ',')
             Hour = [];
             Minute = [];

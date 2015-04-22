@@ -255,7 +255,7 @@ class IMUSensor:
         self.previousTime = currTime
 
         # For Testing
-        # self.smoothYawAll.append(yaw)
+        self.smoothYawAll.append(yaw)
 
         return [smoothRoll,smoothPitch,smoothYaw, self.timeAtRoll,self.timeAtPitch,self.timeAtYaw, rollMax ,rollFocus, pitchMax ,pitchFocus, yawMax ,yawFocus]
 
@@ -332,8 +332,8 @@ class IMUSensor:
         pl.plot(self.timeAtPitch)
         pl.subplot(413)
         pl.plot(self.timeAtYaw)
-        # pl.subplot(414)
-        # pl.plot(self.smoothYawAll[0:])
+        pl.subplot(414)
+        pl.plot(self.smoothYawAll[0:])
         pl.show()
 
 # #------------------------Blink Sensor Functions--------------------------
