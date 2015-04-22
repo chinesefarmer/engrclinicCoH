@@ -163,7 +163,6 @@ class IMUSensor:
                 self.pauseCheck = 1
                 #Should be replaced with GUI interrupt that triggers when
                 #the IMU is secured
-                raw_input("Please put on Headset, then press enter:")
                 timeStamp = datetime.now().time()
                 currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
 
