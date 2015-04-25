@@ -7,7 +7,7 @@ import pylab as pl
 from KeyPress import *
 import numpy as np
 debug = False
-test = False
+test = True
 
 
 '''
