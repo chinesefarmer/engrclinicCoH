@@ -167,6 +167,8 @@ class IMUSensor:
                 currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
 
                 self.previousTime = currTime
+
+                print "IMU Calibration Sequence Completed: Please place the IMU on your head"
             
             self.trialNum = self.trialNum + 1
 
