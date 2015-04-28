@@ -35,6 +35,7 @@ import time as tm
 
 #from datetime import *
 from outputnumbers import SerialData
+from copy import deepcopy
 
 ################################################################################
 class MainFrame(wx.Frame):
@@ -107,9 +108,9 @@ class MainFrame(wx.Frame):
         self.paused = False
         self.blinkIndex = 7
         self.pitchIndex = 6
-        self.smoothRindex = 4 
+        self.smoothRindex = 2
         self.smoothPindex = 3
-        self.smoothYindex = 2
+        self.smoothYindex = 4
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -164,15 +165,16 @@ class ColorPanel(wx.Panel):
         self.xmin = 0
         self.xmax = 360
         self.ymin = 0
-        self.ymax = 10
-        self.res = 1000
-        self.safe = 170
+        self.ymax = 1
+        self.res = 361
+        self.safeVal = 170
 
-
-        mu = self.safe
-        sig = 0.5
-        linGauss = self.gaussian(np.linspace(0,360,self.res), mu, sig)
-        self.mesh = np.tile(linGauss,(self.ymax,1))
+        linAngle = np.linspace(self.xmin, self.xmax, self.res)
+        diffSafe = self.xmax - self.safeVal
+        linAngle[self.safeVal:] = np.linspace(diffSafe,0, (diffSafe + 1))
+        print linAngle
+        #print "length", len(linGauss)
+        self.mesh = np.tile(linAngle,(self.ymax,1))
         self.title = title
         self.xAxisLabel = xAxisLabel
         self.yAxisLabel = yAxisLabel
@@ -224,35 +226,40 @@ class ColorPanel(wx.Panel):
         # to the plotted line series
         print "init ColorPanel", self.data, self.sensorVal
         #print self.sensorVal
-        plot = self.mesh[:,self.sensorVal:]
-        self.color_sensor = self.axes_sensor1.pcolormesh(plot, cmap='RdBu', vmin = self.xmin, vmax=self.xmax)
 
+        #plot = self.mesh[:,self.sensorVal:]
+        currplot = self.mesh
+        currplot[:,self.sensorVal:]=-1000
+        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.safeVal)
+        #self.color_sensor = self.axes_sensor1.pcolormesh(plot, cmap=None)
+
+        self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
+        self.axes_sensor1.set_ybound(lower=self.ymin, upper=self.ymax)
 
     def draw_plot(self):
         """ Redraws the plot
         """
         # when xmin is on auto, it "follows" xmax to produce a 
         # sliding window effect. therefore, xmin is assigned after
-        # xmax.
-        xmin = 0
-        xmax = 360
-        ymin = 0
-        ymax = self.ymax
-
+        # xmax
         #if self.ymax_control.is_auto():
         #    ymax = round(max(self.sensorVal1), 0) + 1
         #else:
         #    ymax = int(self.ymax_control.manual_value())
 
-        self.axes_sensor1.set_xbound(lower=xmin, upper=xmax)
-        self.axes_sensor1.set_ybound(lower=ymin, upper=ymax)
         #print "sensorVal", self.sensorVal
         #print "returntype:", len(self.bar_sensor), len(self.sensorVal)
         #print self.sensorVal
-        plot = self.mesh[:,self.sensorVal:]
-        self.color_sensor.set_C(plot)
-        
+        #plot = self.mesh[:,self.sensorVal:]
+        currplot =deepcopy(self.mesh)
+        currplot[:,self.sensorVal:]=0
+        self.color_sensor.set_array(currplot.ravel())
+        #self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap=None, vmin = self.xmin, vmax=self.safeVal)
+        self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
+        self.axes_sensor1.set_ybound(lower=self.ymin, upper=self.ymax)
+
         self.canvas.draw()
+        self.pause = True
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -262,14 +269,15 @@ class ColorPanel(wx.Panel):
                 if(self.data[0] != 1):
                     pass
                 else:
-                    print "here"
-                    #self.sensorVal = self.data[self.index]
-                    #print self.sensorVal
-                    #self.draw_plot()
+                    #print "here"
+                    self.sensorVal = self.data[self.index]
+                    print "sensorVal", self.sensorVal
+                    
+                    self.draw_plot()
             except KeyboardInterrupt:
                 pass
     def gaussian(self, x, mu, sig):
-        return np.exp(-(x - mu)**2.) / (2 * sig ** 2.)
+        return np.exp(-(x - mu)**2) / (2 * sig ** 2)
 ################################################################################
 class BarPanel(wx.Panel):
     """ The graphing frames frame of the application

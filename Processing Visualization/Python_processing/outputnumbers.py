@@ -19,6 +19,7 @@ class SerialData(object):
 		newData = [1]
 		for i in range(self.len-1):
 			newData.append(self.genRandom(1, 50))
+		newData[4] = self.genRandom(200, 360)
 		self.dataSet = newData
 
 	def genArray(self, index=6):
