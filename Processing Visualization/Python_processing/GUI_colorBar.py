@@ -65,10 +65,10 @@ class MainFrame(wx.Frame):
         sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
         sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
-        #self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        #sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
-        self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel1 = ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        #self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
+        #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
         
         sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
         sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
@@ -122,7 +122,8 @@ class MainFrame(wx.Frame):
                     pass    
                 else:
                     self.gotData = True
-                    self.displayPanel2.data = self.data
+                    self.displayPanel1.data = self.data
+                    #self.displayPanel2.data = self.data
 
             except KeyboardInterrupt:
                 pass
@@ -133,7 +134,8 @@ class MainFrame(wx.Frame):
         self.gotData = False
         label = "Resume all Sensors" if (~self.paused) else "Pause all Sensors"
 
-        self.displayPanel2.paused = False if self.displayPanel2.paused else True
+        self.displayPanel1.paused = False if self.displayPanel1.paused else True
+        #self.displayPanel2.paused = False if self.displayPanel2.paused else True
         pass
 
     def saveAll(self, event=None):
@@ -163,8 +165,14 @@ class ColorPanel(wx.Panel):
         self.xmax = 360
         self.ymin = 0
         self.ymax = 10
+        self.res = 1000
+        self.safe = 170
 
-        hmesh, self.mesh= np.mgrid[self.ymin:self.ymax, self.xmin:self.xmax]
+
+        mu = self.safe
+        sig = 0.5
+        linGauss = self.gaussian(np.linspace(0,360,self.res), mu, sig)
+        self.mesh = np.tile(linGauss,(self.ymax,1))
         self.title = title
         self.xAxisLabel = xAxisLabel
         self.yAxisLabel = yAxisLabel
@@ -184,10 +192,14 @@ class ColorPanel(wx.Panel):
         self.init_plot()
         
         self.canvas = FigCanvas(self, -1, self.fig)
+
+        self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+
         self.hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         
         self.vbox = wx.BoxSizer(wx.VERTICAL)
         self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)        
+        self.vbox.Add(self.hbox1, 0, flag=wx.ALIGN_LEFT | wx.TOP)
         self.vbox.Add(self.hbox2, 0, flag=wx.ALIGN_LEFT | wx.TOP)
         
         self.SetSizer(self.vbox)
@@ -212,8 +224,8 @@ class ColorPanel(wx.Panel):
         # to the plotted line series
         print "init ColorPanel", self.data, self.sensorVal
         #print self.sensorVal
-        
-        self.color_sensor = self.axes_sensor1.pcolormesh(self.mesh, cmap='RdBu', vmin = self.xmin, vmax=self.xmax)
+        plot = self.mesh[:,self.sensorVal:]
+        self.color_sensor = self.axes_sensor1.pcolormesh(plot, cmap='RdBu', vmin = self.xmin, vmax=self.xmax)
 
 
     def draw_plot(self):
@@ -225,7 +237,7 @@ class ColorPanel(wx.Panel):
         xmin = 0
         xmax = 360
         ymin = 0
-        ymax = max(self.sensorVal)
+        ymax = self.ymax
 
         #if self.ymax_control.is_auto():
         #    ymax = round(max(self.sensorVal1), 0) + 1
@@ -237,8 +249,9 @@ class ColorPanel(wx.Panel):
         #print "sensorVal", self.sensorVal
         #print "returntype:", len(self.bar_sensor), len(self.sensorVal)
         #print self.sensorVal
-        for rect, h in zip(self.bar_sensor, self.sensorVal):
-            rect.set_height(h)
+        plot = self.mesh[:,self.sensorVal:]
+        self.color_sensor.set_C(plot)
+        
         self.canvas.draw()
 
     def on_redraw_timer(self, event):
@@ -249,12 +262,14 @@ class ColorPanel(wx.Panel):
                 if(self.data[0] != 1):
                     pass
                 else:
-                    #print "here"
-                    self.sensorVal = self.data[self.index]
+                    print "here"
+                    #self.sensorVal = self.data[self.index]
                     #print self.sensorVal
-                    self.draw_plot()
+                    #self.draw_plot()
             except KeyboardInterrupt:
                 pass
+    def gaussian(self, x, mu, sig):
+        return np.exp(-(x - mu)**2.) / (2 * sig ** 2.)
 ################################################################################
 class BarPanel(wx.Panel):
     """ The graphing frames frame of the application
@@ -295,10 +310,6 @@ class BarPanel(wx.Panel):
         self.init_plot()
         
         self.canvas = FigCanvas(self, -1, self.fig)
-
-        #self.pause_button = wx.Button(self, -1, "Pause")
-        #self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
-        #self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
         self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         #self.hbox1.Add(self.pause_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
@@ -379,12 +390,13 @@ class BarPanel(wx.Panel):
                     self.draw_plot()
             except KeyboardInterrupt:
                 pass
+
 ################################################################################
 def buildGUI():
-	app = wx.App(False)
-	frame = MainFrame(None, "editor")
-	#frame = MyFrame(None, 'Small editor')
-	app.MainLoop()
+    app = wx.App(False)
+    frame = MainFrame(None, "editor")
+    #frame = MyFrame(None, 'Small editor')
+    app.MainLoop()
 
 if __name__ == '__main__':
-	buildGUI()
+    buildGUI()
