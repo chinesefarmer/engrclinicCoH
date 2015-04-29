@@ -190,10 +190,10 @@ class GraphPanel3x(wx.Panel):
 		
 		self.create_main_panel()
 		
-		#self.redraw_timer = timerSource
-		self.redraw_timer = wx.Timer(self)
-		self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-		self.redraw_timer.Start(1) #refresh rate in ms
+		self.redraw_timer = timerSource
+		#self.redraw_timer = wx.Timer(self)
+		#self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
+		#self.redraw_timer.Start(1) #refresh rate in ms
 
 	def create_main_panel(self):
 		self.panel = wx.Panel(self)

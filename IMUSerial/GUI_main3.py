@@ -27,13 +27,14 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 import time as tm
-# improve threading
+# improve lag by adding threading
 from threading import *
+
 from GUI_colorBar import ColorPanel 
 from GUI_colorBar import BarPanel 
 from GUI_plotPanel import GraphPanel3x
 from GUI_plotPanel import GraphPanel
-
+from copy import *
 # Button definitions
 ID_START = wx.NewId()
 ID_STOP = wx.NewId()
@@ -63,7 +64,10 @@ class WorkerThread(Thread):
         """Init Worker Thread Class."""
         Thread.__init__(self)
         self._notify_window = notify_window
-        self._want_abort = 0
+        self._want_abort = False
+        # data class
+        self.s = sensorData()
+        print "started thread..."
         # This starts the thread running on creation, but you could
         # also make the GUI thread responsible for calling this
         self.start()
@@ -74,23 +78,33 @@ class WorkerThread(Thread):
         # a long process (well, 10s here) as a simple loop - you will
         # need to structure your processing so that you periodically
         # peek at the abort variable
-        for i in range(10):
-            time.sleep(1)
-            if self._want_abort:
-                # Use a result of None to acknowledge the abort (of
-                # course you can use whatever you'd like or even
-                # a separate event type)
+        while not self._want_abort:
+            try:  
+                self.data = self.s.next()
+                #print "recieved data", self.data
+                if(self.data[0] != 1):
+                    self.gotData = False
+                    wx.PostEvent(self._notify_window, ResultEvent(None))
+                else:
+                    self.gotData = True
+                    #print "gotData"
+                    wx.PostEvent(self._notify_window, ResultEvent(self.data))
+                pass
+            except KeyboardInterrupt:
+                print "trying to stop here...."
                 wx.PostEvent(self._notify_window, ResultEvent(None))
                 return
-        # Here's where the result would be returned (this is an
-        # example fixed result of the number 10, but it could be
-        # any Python object)
-        wx.PostEvent(self._notify_window, ResultEvent(10))
+        #if exited out of loop, return nothing
+        wx.PostEvent(self._notify_window, ResultEvent(None))
+        return
 
     def abort(self):
         """abort worker thread."""
+        print "aborting..."
         # Method for use by main thread to signal an abort
-        self._want_abort = 1
+        self._want_abort = True
+        #raise Exception('abort')
+
 
 ################################################################################
 #initialize sensor reading and processing functions
@@ -206,10 +220,10 @@ class MainFrame(wx.Frame):
 
         #resize them
         sizerH = wx.BoxSizer(wx.HORIZONTAL)
-        
-
         box = wx.StaticBox(self, -1, label = "Control Box")
         sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
+        
+
         #init GUI
         self.StopBtn = wx.Button(self, label="Stop All Sensors")
         self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
@@ -217,9 +231,12 @@ class MainFrame(wx.Frame):
         SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
 
         #this runs the threading for updating the sensor data
-        #self.startBtn = wx.Button(self, label="Start All Sensors")
-        #self.startBtn.Bind(wx.EVT_BUTTON, self.startAll )
-        
+        sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        sizerV.AddSpacer(5,5)
+        sizerV.Add(self.startSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        sizerV.AddSpacer(5,5)
+
+        # Draw the things        
         #sizerV.Add(self.startBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         #sizerV.AddSpacer(5,5)
         sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -233,11 +250,13 @@ class MainFrame(wx.Frame):
 
 
         #init those sensor plots
-
         self.cb_color = wx.CheckBox(self, -1, "Show Color Grid",style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_color, self.cb_color)
         self.cb_color.SetValue(True)
         sizerV.Add(self.cb_color, 0, wx.EXPAND)
+
+        #comment out hear for threading
+        #self.OnStart()
 
         sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
         sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
@@ -245,11 +264,11 @@ class MainFrame(wx.Frame):
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
         
-        self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        #self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        #sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
         #comment this out
-        self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+        #self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
 
         #self.displayPanel3 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         #sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
@@ -280,12 +299,21 @@ class MainFrame(wx.Frame):
 
     def initSensors(self):
         # Sensor inputs
-        self.s = sensorData()
-        self.data = self.s.next()
+        #self.s = sensorData()
+        self.data = [0,0,0,0,0,0,0,0]
+        self.worker = None
+        self.startSensorBtn = wx.Button(self, ID_START, label="Start Sensors")
+        self.pauseSensorBtn = wx.Button(self, ID_STOP, label="Stop Sensors")
+        self.Bind(wx.EVT_BUTTON, self.OnStart, id=ID_START)
+        self.Bind(wx.EVT_BUTTON, self.OnStop, id=ID_STOP)
+        # Set up event handler for any worker thread results
+        EVT_RESULT(self,self.OnResult)
+        
+        #self.data = self.s.next()
 
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-        self.redraw_timer.Start(0.01) #refresh rate in ms
+        self.redraw_timer.Start(10) #refresh rate in ms
         
         self.gotData = False
         self.paused = False
@@ -295,17 +323,18 @@ class MainFrame(wx.Frame):
         self.smoothPindex = 3
         self.smoothYindex = 2
 
+        #self.OnStart()
     #def bindEvents(self):
     #    self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.displayPanel1.redraw_timer)
 
 
-    def on_redraw_timer(self, event):
+    def on_redraw_timer(self, event = None):
         # if paused do not add data, but still redraw the plot
         # (to respond to scale modifications, grid change, etc.)
         if not self.paused:
-            try:    
-                self.data = self.s.next()
-                #print "recieved data", self.data
+            try:
+                # comment out for therading    
+                # self.data = self.s.next()
                 if(self.data[0] != 1):
                     self.gotData = False
                     
@@ -314,17 +343,18 @@ class MainFrame(wx.Frame):
 
                     showColor = self.cb_color.IsChecked()
                     if (showColor):
-                        self.displayPanel2.data = self.data
+                        #self.displayPanel2.data = self.data
                         #self.displayPanel3.data = self.data
                         #print "got data to main frame"
-                        self.displayPanel2.refresh()
+                        #self.displayPanel2.refresh()
                         #self.displayPanel3.refresh()
-                        
+                        pass
                     else: 
                         self.displayPanelBlink.data=self.data
-                        self.displayPanel1.data=self.data
+                        #self.displayPanel1.data=self.data
                         self.displayPanelBlink.refresh()
-                        self.displayPanel1.refresh()
+                        #self.displayPanel1.refresh()
+                        pass
 
                     #self.displayPanelBlink.redraw_timer = self.redraw_timer
                     #self.displayPanel1.redraw_timer = self.redraw_timer
@@ -341,14 +371,16 @@ class MainFrame(wx.Frame):
         showColor = self.cb_color.IsChecked()
         if (showColor):
             self.displayPanelBlink.Hide()
-            self.displayPanel1.Hide()
-            self.displayPanel2.Show()
+            #self.displayPanel1.Hide()
+            #self.displayPanel2.Show()
             #self.displayPanel3.Show()
+            pass
         else:
             self.displayPanelBlink.Show()
-            self.displayPanel1.Show()
-            self.displayPanel2.Hide()
+            #self.displayPanel1.Show()
+            #self.displayPanel2.Hide()
             #self.displayPanel3.Hide()
+            pass
         self.Layout()
         pass
 
@@ -356,50 +388,41 @@ class MainFrame(wx.Frame):
         """stop or start all plots"""
         #raise Exception 
         #self.gotData = False
-
         self.paused = not self.paused
 
         label = "Resume all Sensors" if (self.paused) else "Pause all Sensors"
         self.StopBtn.SetLabel(label)
 
-        self.displayPanel1.paused = not self.displayPanel1.paused
+        #self.displayPanel1.paused = not self.displayPanel1.paused
         self.displayPanelBlink.paused = not self.displayPanelBlink.paused
-        self.displayPanel2.paused = not self.displayPanel2.paused
+        #self.displayPanel2.paused = not self.displayPanel2.paused
         #self.displayPanel3.paused = not self.displayPanel3.paused
+        #self.OnStop()
         pass
         
-    def startAll(self, event = None):
-        while not self.paused:
-            try:  
-                print "start all started"
-                self.data = self.s.next()
-                #print "recieved data", self.data
-                if(self.data[0] != 1):
-                    self.gotData = False
-                    
-                else:
-                    self.gotData = True
-                    #self.displayPanelBlink.data=self.data
-                    #self.displayPanel1.data = self.data
-                    #print "got data to main frame"
-                    #self.displayPanelBlink.refresh()
-                    #self.displayPanel1.refresh()
-                    
-                    #self.displayPanel2.data = self.data
-                    #print "blinkData", self.data[self.smoothYindex]
-                    #self.displayPanelBlink.redraw_timer = self.redraw_timer
-                    #self.displayPanel1.redraw_timer = self.redraw_timer
+    def OnStart(self, event = None):
+        if not self.worker:
+            print "starting Thread..."
+            self.worker = WorkerThread(self)
 
-                    #print self.redraw_timer, self.displayPanel1.redraw_timer
-                #pass
+    def OnStop(self, event = None):
+        #print "trying to pause it?", self.worker
+        if self.worker:
+            self.worker.abort()
+            self.worker = None
 
-            except KeyboardInterrupt:
-                pass
+    def OnResult(self, event = None):
+        if event.data == None:
+            self.data = [0,0,0,0,0,0,0,0]
+        else:
+            self.data = deepcopy(event.data)
+            #self.on_redraw_timer()
+        #self.worker = None
 
     def saveAll(self, event=None):
         """Save all the data"""
-        self.s.end()
-
+        #self.s.end()
+        pass
     def onQuit(self, event=None):
         """Exit"""
         self.paused = True
@@ -407,7 +430,6 @@ class MainFrame(wx.Frame):
         self.saveAll()
         self.Close()
         frame.Destroy()
-
 
 ################################################################################
 class CameraPanel(wx.Panel):
