@@ -28,7 +28,9 @@ class IMUSensor:
         self.ACCEPTABLE_YAW_RANGE = 3
 
         # Number of iterations during calibration step
-        self.calibrationNo = 100             
+        self.calibrationNo = 100
+
+        self.gyroReFocus = .96
 # ------------------------------------------------------------------------------
         # Parameters required for operation (Non-Customizable)------------------- 
 
@@ -228,7 +230,7 @@ class IMUSensor:
 
 
     def calcGyroYaw(self,previousY, currTime, gyroY):
-        yawAngle = ((gyroY*(currTime-self.previousTime)+previousY)*.9)
+        yawAngle = ((gyroY*(currTime-self.previousTime)+previousY)*self.gyroReFocus)
 
         # yawAngle = (((gyroY+self.gyroDriftY)*(currTime-self.previousTime)+previousY)*.998)
 

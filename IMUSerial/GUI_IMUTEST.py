@@ -55,7 +55,7 @@ class sensorData(object):
 
 		self.usb = Serial('COM5', 57600)
 		self.blinkSensor = bs.BlinkSensor()
-		self.blinkSensor.CheckKeyPress = False
+		self.blinkSensor.CheckKeyPress = True
 		self.blinkSensor.filename = filenameBlink
 		bs.initSerialConnection(self.usb, self.blinkSensor)
 		self.imuSensor = imu.IMUSensor()
@@ -172,14 +172,14 @@ class MainFrame(wx.Frame):
 		sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
 		sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
-		self.displayPanel1 = GraphPanel(self, source=self.data, index = self.smoothRindex, timerSource = self.redraw_timer, title = "Roll data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Roll")
-		sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+		#self.displayPanel1 = GraphPanel(self, source=self.data, index = self.smoothRindex, timerSource = self.redraw_timer, title = "Roll data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Roll")
+		#sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
 
-		self.displayPanel2 = GraphPanel(self, source=self.data, index = self.smoothPindex, timerSource = self.redraw_timer, title = "Pitch Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Pitch")
-		sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+		#self.displayPanel2 = GraphPanel(self, source=self.data, index = self.smoothPindex, timerSource = self.redraw_timer, title = "Pitch Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Pitch")
+		#sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
 
-		self.displayPanel3 = GraphPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Yaw data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Yaw")
-		sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
+		#self.displayPanel3 = GraphPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Yaw data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Yaw")
+		#sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
 		
 		sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
 		sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
@@ -221,9 +221,9 @@ class MainFrame(wx.Frame):
 		self.paused = False
 		self.blinkIndex = 7
 		self.pitchIndex = 6
-		self.smoothRindex = 4 
+		self.smoothRindex = 2 
 		self.smoothPindex = 3
-		self.smoothYindex = 2
+		self.smoothYindex = 4
 
 	def bindEvents(self):
 		self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.displayPanel1.redraw_timer)
@@ -241,9 +241,9 @@ class MainFrame(wx.Frame):
 					
 				else:
 					self.gotData = True
-					self.displayPanel1.data = self.data
-					self.displayPanel2.data = self.data
-					self.displayPanel3.data = self.data
+					#self.displayPanel1.data = self.data
+					#self.displayPanel2.data = self.data
+					#self.displayPanel3.data = self.data
 
 
 			except KeyboardInterrupt:
@@ -281,9 +281,9 @@ class MainFrame(wx.Frame):
 		self.gotData = False
 		label = "Resume all Sensors" if (~self.paused) else "Pause all Sensors"
 
-		self.displayPanel1.paused = False if self.displayPanel1.paused else True
-		self.displayPanel2.paused = False if self.displayPanel2.paused else True
-		self.displayPanel3.paused = False if self.displayPanel3.paused else True
+		#self.displayPanel1.paused = False if self.displayPanel1.paused else True
+		#self.displayPanel2.paused = False if self.displayPanel2.paused else True
+		#self.displayPanel3.paused = False if self.displayPanel3.paused else True
 		pass
 		
 	def startAll(self, event = None):

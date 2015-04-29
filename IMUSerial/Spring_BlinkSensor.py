@@ -227,7 +227,10 @@ class BlinkSensor:
             i = len(self.IRVector)-1
             
             #Take the derivative
-            deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
+            if (self.secVector[i]-self.secVector[i-1] == 0):
+                deriv = 0.0
+            else:
+                deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
 
             #If it's a positive slope above the threshold, start tracking
             if(self.lookForPeak):
