@@ -35,6 +35,7 @@ from GUI_colorBar import BarPanel
 from GUI_plotPanel import GraphPanel3x
 from GUI_plotPanel import GraphPanel
 from copy import *
+from serial.tools import list_ports
 # Button definitions
 ID_START = wx.NewId()
 ID_STOP = wx.NewId()
@@ -60,7 +61,7 @@ class ResultEvent(wx.PyEvent):
 # Thread class that executes processing
 class WorkerThread(Thread):
     """Worker Thread Class."""
-    def __init__(self, notify_window):
+    def __init__(self, notify_window, passedData):
         """Init Worker Thread Class."""
         Thread.__init__(self)
         self._notify_window = notify_window
@@ -88,6 +89,8 @@ class WorkerThread(Thread):
                 else:
                     self.gotData = True
                     #print "gotData"
+                    #print "output",self.data[0:3]
+                    passedData = self.data
                     wx.PostEvent(self._notify_window, ResultEvent(self.data))
                 pass
             except KeyboardInterrupt:
@@ -104,6 +107,7 @@ class WorkerThread(Thread):
         # Method for use by main thread to signal an abort
         self._want_abort = True
         #raise Exception('abort')
+################################################################################
 
 
 ################################################################################
@@ -123,7 +127,20 @@ class sensorData(object):
         #filenameBlink = (filename[:-4] + 'Blink.csv' )
         filenameBlink = 'blink.csv'
 
-        self.usb = Serial('COM5', 57600)
+        #initialize teensy port...
+        """
+        ports_avaiable = list(list_ports.comports())
+        teensy_port = tuple()
+        for port in ports_avaiable:
+            if port[1].startswith("Teensy"):
+                teensy_port = port
+        if teensy_port:
+            print "teensy ports:", teensy_port
+            self.usb = Serial(teensy_port[0], 57600)
+        else:
+            print "no ports found??"
+        """
+        self.usb = Serial('COM4', 57600)
         self.blinkSensor = bs.BlinkSensor()
         self.blinkSensor.CheckKeyPress = False
         self.blinkSensor.filename = filenameBlink
@@ -195,7 +212,7 @@ class sensorData(object):
                 outputData =  [0,0] + [0,0,0,0,0,0]
             
             #print "my outputs???", outputData
-            #print "output data to main frame"
+            #print "output data", outputData[0:3]
             return outputData
         #Run only at the end of the op  
         except KeyboardInterrupt:
@@ -403,7 +420,7 @@ class MainFrame(wx.Frame):
     def OnStart(self, event = None):
         if not self.worker:
             print "starting Thread..."
-            self.worker = WorkerThread(self)
+            self.worker = WorkerThread(self, self.data)
 
     def OnStop(self, event = None):
         #print "trying to pause it?", self.worker
@@ -414,8 +431,9 @@ class MainFrame(wx.Frame):
     def OnResult(self, event = None):
         if event.data == None:
             self.data = [0,0,0,0,0,0,0,0]
-        else:
-            self.data = deepcopy(event.data)
+        #else:
+            #print "gotData", event.data[0:3]
+            #self.data = deepcopy(event.data)
             #self.on_redraw_timer()
         #self.worker = None
 
@@ -466,7 +484,7 @@ class CameraPanel(wx.Panel):
 
         self.SetSizerAndFit(Sizer)
     # start stream and recording the camera
-    def onStart(self, event=None):
+    def onStart(self, event=None, saving = True):
         #self.name = self.textBox.GetValue()
         #if not self.name:
         #    dt = datetime.datetime.now()
@@ -476,12 +494,12 @@ class CameraPanel(wx.Panel):
 
         stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=20'
 
-        save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'#name + '.mp4}\'}\"' #
+        save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop\\\TestLog_mp4.mp4}\'}\"'#name + '.mp4}\'}\"' #
 
-        if saving:
-         save = save
-        else:
-            save = ''
+        # if saving:
+        #  save = save
+        # else:
+        #     save = ''
         command_line = stream + save
         #print command_line
         args = shlex.split(command_line)
