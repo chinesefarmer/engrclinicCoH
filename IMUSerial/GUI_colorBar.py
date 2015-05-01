@@ -124,7 +124,10 @@ class MainFrame(wx.Frame):
                 else:
                     self.gotData = True
                     self.displayPanel1.data = self.data
-                    #self.displayPanel2.data = self.data
+                    self.displayPanel2.data = self.data
+
+                    self.displayPanel1.refresh()
+                    self.displayPanel2.refresh()
 
             except KeyboardInterrupt:
                 pass
@@ -136,7 +139,7 @@ class MainFrame(wx.Frame):
         label = "Resume all Sensors" if (~self.paused) else "Pause all Sensors"
 
         self.displayPanel1.paused = False if self.displayPanel1.paused else True
-        #self.displayPanel2.paused = False if self.displayPanel2.paused else True
+        self.displayPanel2.paused = False if self.displayPanel2.paused else True
         pass
 
     def saveAll(self, event=None):
@@ -153,7 +156,7 @@ class ColorPanel(wx.Panel):
     """
     
     def __init__(self, parent, source, index = 0, timerSource = [datetime.datetime.now().time()] , title = "Display Data", xAxisLabel = "x axis", yAxisLabel = "y axis"):
-        wx.Panel.__init__(self,parent)
+        wx.Panel.__init__(self,parent, size =(500,50))
         self.index = index
 
         self.data = source      
@@ -214,12 +217,14 @@ class ColorPanel(wx.Panel):
         self.axes_sensor1 = self.fig.add_subplot(111)
         self.axes_sensor1.set_axis_bgcolor('black')
         self.axes_sensor1.set_title(self.title, size=12)
+
         
+        pl.setp(self.axes_sensor1.get_yticklabels(), visible= False)
         self.axes_sensor1.set_xlabel(self.xAxisLabel, size = 8)
-        self.axes_sensor1.set_ylabel(self.yAxisLabel, size = 8)
+        #self.axes_sensor1.set_ylabel(self.yAxisLabel, size = 8)
 
         #self.axes_sensor1.
-        pl.setp(self.axes_sensor1.get_xticklabels(), fontsize=8)
+        #pl.setp(self.axes_sensor1.get_xticklabels(), fontsize=8)
         #pl.setp(self.axes_sensor1.get_yticklabels(), fontsize=8)
 
         # plot the data as a line series, and save the reference 
@@ -423,7 +428,7 @@ class BarPanel(wx.Panel):
                 else:
                     #print "here"
                     self.sensorVal = self.data[self.index]
-                    print self.sensorVal
+                    #print self.sensorVal
                     self.draw_plot()
             except KeyboardInterrupt:
                 pass

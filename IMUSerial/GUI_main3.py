@@ -90,7 +90,7 @@ class WorkerThread(Thread):
                     self.gotData = True
                     #print "gotData"
                     #print "output",self.data[0:3]
-                    passedData = self.data
+                    #passedData = self.data
                     wx.PostEvent(self._notify_window, ResultEvent(self.data))
                 pass
             except KeyboardInterrupt:
@@ -99,6 +99,7 @@ class WorkerThread(Thread):
                 return
         #if exited out of loop, return nothing
         wx.PostEvent(self._notify_window, ResultEvent(None))
+        self.s.end()
         return
 
     def abort(self):
@@ -121,11 +122,13 @@ class sensorData(object):
         #Writes the raw data for the IMU
         #filenameIMU = (filename[:-4] + 'IMU.csv' )
         print "initializing sensor data.........."
-        filenameIMU = 'imu.csv'
+        dt = datetime.datetime.now()
+        date = dt.strftime("%m%d%y_%H%M%p_")
+        filenameIMU = date + 'imu.csv'
 
         #Reads the data to process for the blink sensor
         #filenameBlink = (filename[:-4] + 'Blink.csv' )
-        filenameBlink = 'blink.csv'
+        filenameBlink = date + 'blink.csv'
 
         #initialize teensy port...
         """
@@ -158,9 +161,7 @@ class sensorData(object):
         self.blinkSensor.tPrintBlink = 1.0/6
 
         self.prevBlinks = 0.0
-        print "initialized Sensor"
-        '''BEN: This is the loop I'm using right now to keep getting serial data and 
-        then save it to a usb when the user hits ctrl-c (or keyboard interrupts the shell)'''       
+        print "initialized Sensor"  
 
     def next(self):
 
@@ -229,7 +230,7 @@ class sensorData(object):
 #main frame for displaying the data
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self,parent, title=title, size=(300,400))
+        wx.Frame.__init__(self,parent, title=title)
         # initialize menu bar
         self.CreateStatusBar() # A Statusbar in the bottom of the window
 
@@ -242,10 +243,10 @@ class MainFrame(wx.Frame):
         
 
         #init GUI
-        self.StopBtn = wx.Button(self, label="Stop All Sensors")
+        self.StopBtn = wx.Button(self, label="Stop Plotting")
         self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
-        SaveBtn = wx.Button(self, label= "Save All Data")
-        SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
+        #SaveBtn = wx.Button(self, label= "Save All Data")
+        #SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
 
         #this runs the threading for updating the sensor data
         sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -258,7 +259,7 @@ class MainFrame(wx.Frame):
         #sizerV.AddSpacer(5,5)
         sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         sizerV.AddSpacer(5,5)
-        sizerV.Add(SaveBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
+        #sizerV.Add(SaveBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
 
         #add widgets        
         self.Panel3 = CameraPanel(self)
@@ -275,24 +276,29 @@ class MainFrame(wx.Frame):
         #comment out hear for threading
         #self.OnStart()
 
-        sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
-        sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+        self.sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
+        self.sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
+        self.sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
         
-        #self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        #sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        self.sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
         #comment this out
-        #self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Focus on the Operating Field in Degrees", xAxisLabel = "Angle in Degrees", yAxisLabel = "Smooth RPY")
+        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.EXPAND)
 
-        #self.displayPanel3 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        #sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel3 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
+        self.sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
         
-        sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
-        #sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
+        sizerH.Add(self.sizerDisplayV1, 1, wx.EXPAND)
+        sizerH.Add(self.sizerDisplayV2, 1, wx.EXPAND)
+        self.displayPanelBlink.Hide()
+        self.displayPanel1.Hide()
+        self.sizerDisplayV1.Hide(self)
+        self.sizerDisplayV1.Layout()
         
+
         sizerH.Add(sizerV, 0, wx.RIGHT, 0)
         self.SetSizerAndFit(sizerH)
         #self.Fit()
@@ -320,7 +326,7 @@ class MainFrame(wx.Frame):
         self.data = [0,0,0,0,0,0,0,0]
         self.worker = None
         self.startSensorBtn = wx.Button(self, ID_START, label="Start Sensors")
-        self.pauseSensorBtn = wx.Button(self, ID_STOP, label="Stop Sensors")
+        self.pauseSensorBtn = wx.Button(self, ID_STOP, label="Stop Sensors and Save")
         self.Bind(wx.EVT_BUTTON, self.OnStart, id=ID_START)
         self.Bind(wx.EVT_BUTTON, self.OnStop, id=ID_STOP)
         # Set up event handler for any worker thread results
@@ -360,17 +366,17 @@ class MainFrame(wx.Frame):
 
                     showColor = self.cb_color.IsChecked()
                     if (showColor):
-                        #self.displayPanel2.data = self.data
-                        #self.displayPanel3.data = self.data
+                        self.displayPanel2.data = self.data
+                        self.displayPanel3.data = self.data
                         #print "got data to main frame"
-                        #self.displayPanel2.refresh()
-                        #self.displayPanel3.refresh()
+                        self.displayPanel2.refresh()
+                        self.displayPanel3.refresh()
                         pass
                     else: 
                         self.displayPanelBlink.data=self.data
-                        #self.displayPanel1.data=self.data
+                        self.displayPanel1.data=self.data
                         self.displayPanelBlink.refresh()
-                        #self.displayPanel1.refresh()
+                        self.displayPanel1.refresh()
                         pass
 
                     #self.displayPanelBlink.redraw_timer = self.redraw_timer
@@ -388,17 +394,25 @@ class MainFrame(wx.Frame):
         showColor = self.cb_color.IsChecked()
         if (showColor):
             self.displayPanelBlink.Hide()
-            #self.displayPanel1.Hide()
-            #self.displayPanel2.Show()
-            #self.displayPanel3.Show()
+            self.displayPanel1.Hide()
+            self.sizerDisplayV1.Hide(self)
+            self.displayPanel2.Show()
+            self.displayPanel3.Show()
+            self.sizerDisplayV2.Show(self)
+
             pass
         else:
             self.displayPanelBlink.Show()
-            #self.displayPanel1.Show()
-            #self.displayPanel2.Hide()
-            #self.displayPanel3.Hide()
+            self.displayPanel1.Show()
+            self.sizerDisplayV1.Show(self)
+            self.displayPanel2.Hide()
+            self.displayPanel3.Hide()
+            self.sizerDisplayV2.Hide(self)
             pass
+        self.sizerDisplayV1.Layout()
+        self.sizerDisplayV2.Layout()
         self.Layout()
+        self.Fit()
         pass
 
     def stopAll(self, event = None):
@@ -407,13 +421,13 @@ class MainFrame(wx.Frame):
         #self.gotData = False
         self.paused = not self.paused
 
-        label = "Resume all Sensors" if (self.paused) else "Pause all Sensors"
+        label = "Resume Plotting" if (self.paused) else "Pause Plotting"
         self.StopBtn.SetLabel(label)
 
-        #self.displayPanel1.paused = not self.displayPanel1.paused
+        self.displayPanel1.paused = not self.displayPanel1.paused
         self.displayPanelBlink.paused = not self.displayPanelBlink.paused
-        #self.displayPanel2.paused = not self.displayPanel2.paused
-        #self.displayPanel3.paused = not self.displayPanel3.paused
+        self.displayPanel2.paused = not self.displayPanel2.paused
+        self.displayPanel3.paused = not self.displayPanel3.paused
         #self.OnStop()
         pass
         
@@ -431,16 +445,16 @@ class MainFrame(wx.Frame):
     def OnResult(self, event = None):
         if event.data == None:
             self.data = [0,0,0,0,0,0,0,0]
-        #else:
+        else:
             #print "gotData", event.data[0:3]
-            #self.data = deepcopy(event.data)
+            self.data = deepcopy(event.data)
             #self.on_redraw_timer()
         #self.worker = None
 
-    def saveAll(self, event=None):
-        """Save all the data"""
-        #self.s.end()
-        pass
+    # def saveAll(self, event=None):
+    #     """Save all the data"""
+    #     self.s.end()
+    #     pass
     def onQuit(self, event=None):
         """Exit"""
         self.paused = True
@@ -487,14 +501,15 @@ class CameraPanel(wx.Panel):
     def onStart(self, event=None, saving = True):
         #self.name = self.textBox.GetValue()
         #if not self.name:
-        #    dt = datetime.datetime.now()
-        #    name = self.directoryName + dt.strftime("%m_%d_%Y_%H_%M%p")
+        dt = datetime.datetime.now()
+        name = dt.strftime("\%m%d%Y_%H%M%p_")
         #else:
         #    name = self.directoryName
 
-        stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=20'
+        stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 
-        save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop\\\TestLog_mp4.mp4}\'}\"'#name + '.mp4}\'}\"' #
+        save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop' + name + 'TestLog_mp4.mp4}\'}\"'
+        #name + '.mp4}\'}\"' #
 
         # if saving:
         #  save = save

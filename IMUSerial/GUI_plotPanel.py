@@ -126,7 +126,8 @@ class MainFrame(wx.Frame):
 					self.displayPanelBlink.data=self.data
 					self.displayPanel1.data = self.data
 					#print "senddata", self.data
-
+					self.displayPanelBlink.refresh()
+					self.displayPanel1.refresh()
 					#self.displayPanelBlink.redraw_timer = self.redraw_timer
 					#self.displayPanel1.redraw_timer = self.redraw_timer
 			except KeyboardInterrupt:
@@ -243,7 +244,7 @@ class GraphPanel3x(wx.Panel):
 
 		pl.setp(self.axes_sensor.get_xticklabels(), fontsize=8)
 		pl.setp(self.axes_sensor.get_yticklabels(), fontsize=8)
-		#pl.setp(self.axes_sensor.get_xticklabels(), visible= False)
+		#pl.setp(self.axes_sensor.get_yticklabels(), visible= False)
 		#pl.setp(self.axes_sensor2.get_xticklabels(), fontsize=8)
 		#pl.setp(self.axes_sensor2.get_yticklabels(), fontsize=8)
 
@@ -306,7 +307,7 @@ class GraphPanel3x(wx.Panel):
 
 		self.axes_sensor.set_xbound(lower=xmin, upper=xmax)
 		self.axes_sensor.set_ybound(lower=ymin, upper=ymax)
-
+		#pl.setp(self.axes_sensor.get_yticklabels(), visible= False)
 		# Using setp here is convenient, because get_xticklabels
 		# returns a list over which one needs to explicitly 
 		# iterate, and setp already handles this.
