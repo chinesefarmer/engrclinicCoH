@@ -108,8 +108,6 @@ class WorkerThread(Thread):
         # Method for use by main thread to signal an abort
         self._want_abort = True
         #raise Exception('abort')
-################################################################################
-
 
 ################################################################################
 #initialize sensor reading and processing functions
@@ -131,7 +129,7 @@ class sensorData(object):
         filenameBlink = date + 'blink.csv'
 
         #initialize teensy port...
-        """
+        
         ports_avaiable = list(list_ports.comports())
         teensy_port = tuple()
         for port in ports_avaiable:
@@ -141,9 +139,8 @@ class sensorData(object):
             print "teensy ports:", teensy_port
             self.usb = Serial(teensy_port[0], 57600)
         else:
-            print "no ports found??"
-        """
-        self.usb = Serial('COM4', 57600)
+            print "Please check if sensor is plugged in correctly"
+            self.usb = Serial('COM4', 57600)
         self.blinkSensor = bs.BlinkSensor()
         self.blinkSensor.CheckKeyPress = False
         self.blinkSensor.filename = filenameBlink
@@ -189,18 +186,16 @@ class sensorData(object):
                         IR1 = float((self.serialData[1])[0])
                         
                         numRecentBlinks = self.blinkSensor.Algorithm(IR1, False)
-                        #if(numRecentBlinks != 0):
-                        #print "run blink sensor data"
                         if(numRecentBlinks != 0):
                             self.prevBlinks = numRecentBlinks
-                            outputData = [1,1] + processedData[0:5]+ [numRecentBlinks]
+                            outputData = [1,1] + [numRecentBlinks] + processedData
                         else:
                             #print "trigger blink sensor data"
-                            outputData = [1,1] + processedData[0:5] + [self.prevBlinks]
+                            outputData = [1,1] + [self.prevBlinks] + processedData
 
                         #print "output withIR"
                     except ValueError:
-                        outputData = [1,1] + processedData[0:5] + [0]
+                        outputData = [1,1] + [0] + processedData
                         print "Value Error"
 
                     # # Slows down the cycle enough to prevent divide by zero errors
@@ -245,8 +240,6 @@ class MainFrame(wx.Frame):
         #init GUI
         self.StopBtn = wx.Button(self, label="Stop Plotting")
         self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
-        #SaveBtn = wx.Button(self, label= "Save All Data")
-        #SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
 
         #this runs the threading for updating the sensor data
         sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -276,8 +269,8 @@ class MainFrame(wx.Frame):
         #comment out hear for threading
         #self.OnStart()
 
-        sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
-        sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
 
 
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
@@ -288,12 +281,12 @@ class MainFrame(wx.Frame):
         self.sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
 
         #comment this out
-        self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Focus on the Operating Field in Degrees", xAxisLabel = "Angle in Degrees", yAxisLabel = "Smooth RPY")
+        self.displayPanel2 =  ColorPanel(self, source=self.data, focusIndex = self.pitchMaxIndex, percentIndex = self.pitchFocusIndex, timerSource = self.redraw_timer, title = "Focus on the Operating Field", xAxisLabel = "Percent Pitch", yAxisLabel = "Percent Pitch")
         self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
 
-        self.displayPanel3 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        self.sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
-        
+        self.displayPanel2 =  ColorPanel(self, source=self.data, focusIndex = self.yawMaxIndex, percentIndex = self.yawFocusIndex, timerSource = self.redraw_timer, title = "Head Tilt in the Operating Field", xAxisLabel = "Percent Yaw", yAxisLabel = "Percent Yaw")
+        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
+
         sizerH.Add(self.sizerDisplayV1, 1, wx.EXPAND)
         sizerH.Add(self.sizerDisplayV2, 1, wx.EXPAND)
         self.displayPanelBlink.Hide()
@@ -341,14 +334,24 @@ class MainFrame(wx.Frame):
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
         self.redraw_timer.Start(10) #refresh rate in ms
-        
+
+        #[1,1] + [self.prevBlinks] + processedData
+        # processedData = [smoothRoll,smoothPitch,smoothYaw,
+        # self.timeAtRoll,self.timeAtPitch,self.timeAtYaw, # THESE ARE 360 length array
+        # rollMax,rollFocus, pitchMax ,pitchFocus, yawMax ,yawFocus] # *Max is the focus angle and
+                                                            # *focus is the percent time focusing
         self.gotData = False
         self.paused = False
-        self.blinkIndex = 7
-        self.pitchIndex = 6
-        self.smoothRindex = 4 
-        self.smoothPindex = 3
-        self.smoothYindex = 2
+        self.blinkIndex = 2
+
+        self.smoothRindex = 3 
+        self.smoothPindex = 4
+        self.smoothYindex = 5
+
+        self.pitchMaxIndex = 11
+        self.pitchFocusIndex = 12
+        self.yawMaxIndex = 13
+        self.yawFocusIndex = 14
 
         #self.OnStart()
     #def bindEvents(self):
@@ -454,12 +457,7 @@ class MainFrame(wx.Frame):
             #print "gotData", event.data[0:3]
             self.data = deepcopy(event.data)
             #self.on_redraw_timer()
-        #self.worker = None
 
-    # def saveAll(self, event=None):
-    #     """Save all the data"""
-    #     self.s.end()
-    #     pass
     def onQuit(self, event=None):
         """Exit"""
         self.paused = True
@@ -505,11 +503,11 @@ class CameraPanel(wx.Panel):
 
         save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop' + name + 'TestLog_mp4.mp4}\'}\"'
         #name + '.mp4}\'}\"' #
+        if saving:
+         save = save
+        else:
+            save = ''
 
-        # if saving:
-        #  save = save
-        # else:
-        #     save = ''
         command_line = stream + save
         #print command_line
         args = shlex.split(command_line)

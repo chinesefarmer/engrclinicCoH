@@ -155,26 +155,29 @@ class ColorPanel(wx.Panel):
     """ The graphing frames frame of the application
     """
     
-    def __init__(self, parent, source, index = 0, timerSource = [datetime.datetime.now().time()] , title = "Focus on the Operating Field in Degrees", xAxisLabel = "x axis", yAxisLabel = "y axis"):
+    def __init__(self, parent, source, focusIndex = 0, percentIndex= 0, timerSource = [datetime.datetime.now().time()] , title = "Focus on the Operating Field in Degrees", xAxisLabel = "x axis", yAxisLabel = "y axis"):
         wx.Panel.__init__(self,parent, size =(500,50))
-        self.index = index
+        self.focusIndex = focusIndex
+        self.percentIndex = percentIndex
 
         self.data = source      
         #**************************
         self.time = [datetime.datetime.now().time()]
+
         #print "init", self.data
-        self.sensorVal = self.data[index] 
+        self.sensorVal = self.data[percentIndex]
+        self.sensorDist = self.data[focusIndex]
         self.sumVal = 0.0
         self.xmin = 0
-        self.xmax = 360
+        self.xmax =101
         self.ymin = 0
         self.ymax = 1
-        self.res = 361
-        self.safeVal = 170
+        self.res = 100
+        self.medVal = 50
 
         linAngle = np.linspace(self.xmin, self.xmax, self.res)
-        diffSafe = self.xmax - self.safeVal
-        linAngle[self.safeVal:] = np.linspace(diffSafe,0, (diffSafe + 1))
+        diffSafe = self.xmax - self.medVal
+        linAngle[self.medVal:] = np.linspace(diffSafe,0, (diffSafe + 1))
         #print linAngle
         #print "length", len(linGauss)
         self.mesh = np.tile(linAngle,(self.ymax,1))
@@ -235,7 +238,7 @@ class ColorPanel(wx.Panel):
         cmap = plt.get_cmap('jet_r')
         cmap.set_bad(color = 'k', alpha = 1)
         #currplot[:,self.sensorVal:]=-1000
-        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.safeVal)
+        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.medVal)
 
         #plot = self.mesh[:,self.sensorVal:]
         self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
@@ -257,11 +260,14 @@ class ColorPanel(wx.Panel):
         #print self.sensorVal
         #plot = self.mesh[:,self.sensorVal:]
         currplot = deepcopy(self.mesh)
-        currplot[:,self.sensorVal:] = np.nan
+        minVal = self.medVal - self.sensorVal/2
+        maxVal = self.medVal + self.sensorVal/2
+        currplot[:,minVal:] = np.nan
+        currplot[:,0:minVal] = np.nan
         currplot = np.ma.masked_invalid(currplot)
         #currplot[:,self.sensorVal:]=-100
         self.color_sensor.set_array(currplot.ravel())
-        #self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap=None, vmin = self.xmin, vmax=self.safeVal)
+        #self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap=None, vmin = self.xmin, vmax=self.medVal)
         self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
         self.axes_sensor1.set_ybound(lower=self.ymin, upper=self.ymax)
 
@@ -278,7 +284,7 @@ class ColorPanel(wx.Panel):
                     pass
                 else:
                     #print "here"
-                    self.sensorVal = self.data[self.index]
+                    self.sensorVal = self.data[percentIndex]
                     #print "sensorVal", self.sensorVal
                     
                     self.draw_plot()
@@ -291,7 +297,7 @@ class ColorPanel(wx.Panel):
                     pass
                 else:
                     #print "here"
-                    self.sensorVal = self.data[self.index]
+                    self.sensorVal = self.data[percentIndex]
                     #print "sensorVal", self.sensorVal
                     
                     self.draw_plot()

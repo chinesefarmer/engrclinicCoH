@@ -176,8 +176,8 @@ class GraphPanel3x(wx.Panel):
 		self.sensorVal3 = [self.data[self.sensorIndex3]]
 		self.xmin = 0
 		self.xmax = 50
-		self.ymax = 200
-		self.ymin = -200
+		self.ymax = 100
+		self.ymin = -100
 		#print "sensorValues", self.sensorVal1, self.sensorVal2, self.sensorVal3
 		self.title = title
 		self.xAxisLabel = xAxisLabel
