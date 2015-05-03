@@ -258,14 +258,14 @@ class MainFrame(wx.Frame):
         #comment out hear for threading
         #self.OnStart()
 
-        sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
-        sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+        sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
 
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
         
-        #self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        #sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
         #comment this out
         #self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
         #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
@@ -274,7 +274,7 @@ class MainFrame(wx.Frame):
         #sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
         
         sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
-        #sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
+        sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
         
         sizerH.Add(sizerV, 0, wx.RIGHT, 0)
         self.SetSizerAndFit(sizerH)
@@ -351,9 +351,9 @@ class MainFrame(wx.Frame):
                         pass
                     else: 
                         self.displayPanelBlink.data=self.data
-                        #self.displayPanel1.data=self.data
+                        self.displayPanel1.data=self.data
                         self.displayPanelBlink.refresh()
-                        #self.displayPanel1.refresh()
+                        self.displayPanel1.refresh()
                         pass
 
                     #self.displayPanelBlink.redraw_timer = self.redraw_timer
@@ -371,13 +371,13 @@ class MainFrame(wx.Frame):
         showColor = self.cb_color.IsChecked()
         if (showColor):
             self.displayPanelBlink.Hide()
-            #self.displayPanel1.Hide()
+            self.displayPanel1.Hide()
             #self.displayPanel2.Show()
             #self.displayPanel3.Show()
             pass
         else:
             self.displayPanelBlink.Show()
-            #self.displayPanel1.Show()
+            self.displayPanel1.Show()
             #self.displayPanel2.Hide()
             #self.displayPanel3.Hide()
             pass
@@ -393,10 +393,10 @@ class MainFrame(wx.Frame):
         label = "Resume all Sensors" if (self.paused) else "Pause all Sensors"
         self.StopBtn.SetLabel(label)
 
-        #self.displayPanel1.paused = not self.displayPanel1.paused
+        self.displayPanel1.paused = not self.displayPanel1.paused
         self.displayPanelBlink.paused = not self.displayPanelBlink.paused
-        #self.displayPanel2.paused = not self.displayPanel2.paused
-        #self.displayPanel3.paused = not self.displayPanel3.paused
+        self.displayPanel2.paused = not self.displayPanel2.paused
+        self.displayPanel3.paused = not self.displayPanel3.paused
         #self.OnStop()
         pass
         
@@ -466,7 +466,7 @@ class CameraPanel(wx.Panel):
 
         self.SetSizerAndFit(Sizer)
     # start stream and recording the camera
-    def onStart(self, event=None):
+    def onStart(self, event=None, saving = False):
         #self.name = self.textBox.GetValue()
         #if not self.name:
         #    dt = datetime.datetime.now()

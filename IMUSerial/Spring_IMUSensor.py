@@ -18,19 +18,19 @@ class IMUSensor:
     def __init__(self):
         # Customizable Parameters --------------------------------------------
 
-        self.avgWeightingRoll = 0.5         # These are the weighting values 
-        self.avgWeightingPitch = 0.5        # that apply smoothing on the roll, 
-        self.avgWeightingYaw = 0.5          # pitch and yaw
+        self.avgWeightingRoll = .2         # These are the weighting values 
+        self.avgWeightingPitch = .2        # that apply smoothing on the roll, 
+        self.avgWeightingYaw = .5          # pitch and yaw
 
         # Max Possible Pitch angle and still be facing the table
-        self.ACCEPTABLE_ROLL_RANGE = 5   
-        self.ACCEPTABLE_PITCH_RANGE = 5      
-        self.ACCEPTABLE_YAW_RANGE = 3
+        self.ACCEPTABLE_ROLL_RANGE = 5  
+        self.ACCEPTABLE_PITCH_RANGE = 10     
+        self.ACCEPTABLE_YAW_RANGE = 8
 
         # Number of iterations during calibration step
         self.calibrationNo = 100
 
-        self.gyroReFocus = .96
+        self.gyroReFocus = .99
 # ------------------------------------------------------------------------------
         # Parameters required for operation (Non-Customizable)------------------- 
 
@@ -194,8 +194,9 @@ class IMUSensor:
             else:
                 pitch = atan(-1*AcclX / (AcclZ*sin(roll) + AcclY*cos(roll)))
             
+            # These are weightings used for filters, which are always positive
             gX = abs(GyroX + self.gyroDriftX)
-            gY = abs(GyroY + self.gyroDriftY)
+            gY = GyroY + self.gyroDriftY
             gZ = abs(GyroZ + self.gyroDriftZ)
 
             # Sets the prev variable to the rpy data set in the previous loop
@@ -221,7 +222,7 @@ class IMUSensor:
                 pitch = pitch + 360
 
 
-            self.nextY = self.calcGyroYaw(prevY,currTime,GyroY)
+            self.nextY = self.calcGyroYaw(prevY,currTime,gY)
         
         #Saves the IMU data to a csv file
         data = [AcclX, AcclY, AcclZ, MagX, MagY, MagZ, GyroX, GyroY, GyroZ, roll, pitch, self.nextY, currTime]
