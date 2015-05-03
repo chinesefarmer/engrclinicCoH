@@ -286,7 +286,7 @@ class MainFrame(wx.Frame):
         self.sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
         #comment this out
         self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Focus on the Operating Field in Degrees", xAxisLabel = "Angle in Degrees", yAxisLabel = "Smooth RPY")
-        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.EXPAND)
+        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
 
         self.displayPanel3 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         self.sizerDisplayV1.Add(self.displayPanel3, 1, wx.EXPAND|wx.ALL)
@@ -480,21 +480,10 @@ class CameraPanel(wx.Panel):
         self.CameraStopBtn = wx.Button(self, label="Stop Stream")
         self.CameraStopBtn.Bind(wx.EVT_BUTTON, self.closeCamera)
 
-        ###
-        self.directoryName = "C:\\\Users\\\jyang\\\Desktop\\\Log"
-        self.name = ''
-        self.textBox = wx.TextCtrl(self, -1, size=(140,-1))
-        self.textBox.SetValue(self.name)
-    
-    #   self.lblname = wx.StaticText(self, label="Writing to:" + self.name))
-        #dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
-        #dlg.ShowModal()
-        #self.name = dlg.getValue
-                
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         Sizer.Add(self.CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-        Sizer.Add(self.textBox)
+        #Sizer.Add(self.textBox)
 
         self.SetSizerAndFit(Sizer)
     # start stream and recording the camera
