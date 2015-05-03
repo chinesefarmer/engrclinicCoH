@@ -63,13 +63,13 @@ class MainFrame(wx.Frame):
 
 
         #init those sensor plots
-        sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
-        sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+        sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.displayPanel1 = ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        self.displayPanel1 = ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Pitch Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Pitch")
         sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
-        #self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Roll Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Smooth Roll")
+        sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
         
         sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
         sizerH.Add(sizerDisplayV2, 1, wx.EXPAND)
@@ -271,7 +271,7 @@ class ColorPanel(wx.Panel):
                 else:
                     #print "here"
                     self.sensorVal = self.data[self.index]
-                    print "sensorVal", self.sensorVal
+                    #print "sensorVal", self.sensorVal
                     
                     self.draw_plot()
             except KeyboardInterrupt:

@@ -596,7 +596,7 @@ if __name__=='__main__':
 
     usb = Serial('COM6', 57600)
     blinkSensor = bs.BlinkSensor()
-    blinkSensor.CheckKeyPress = False
+    blinkSensor.CheckKeyPress = True
     blinkSensor.filename = filenameBlink
     bs.initSerialConnection(usb, blinkSensor)
     self.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)

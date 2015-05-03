@@ -15,8 +15,8 @@ if __name__=='__main__':
 
     global filename,filenameIMU,filenameBlink
     #Writes the raw data for the blink sensor
-    #filename = raw_input('Enter a file name:  ')+ ".csv"
-    filename = ""
+    filename = raw_input('Enter a file name:  ')+ ".csv"
+    #filename = ""
     #Writes the raw data for the IMU
     filenameIMU = (filename[:-4] + 'IMU.csv' )
     #Reads the data to process for the blink sensor

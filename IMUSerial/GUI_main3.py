@@ -276,14 +276,17 @@ class MainFrame(wx.Frame):
         #comment out hear for threading
         #self.OnStart()
 
-        self.sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
-        self.sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+        sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
+
 
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         self.sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
         
         self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+
         self.sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+
         #comment this out
         self.displayPanel2 =  ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Focus on the Operating Field in Degrees", xAxisLabel = "Angle in Degrees", yAxisLabel = "Smooth RPY")
         self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
@@ -297,6 +300,7 @@ class MainFrame(wx.Frame):
         self.displayPanel1.Hide()
         self.sizerDisplayV1.Hide(self)
         self.sizerDisplayV1.Layout()
+
         
 
         sizerH.Add(sizerV, 0, wx.RIGHT, 0)
@@ -395,6 +399,7 @@ class MainFrame(wx.Frame):
         if (showColor):
             self.displayPanelBlink.Hide()
             self.displayPanel1.Hide()
+
             self.sizerDisplayV1.Hide(self)
             self.displayPanel2.Show()
             self.displayPanel3.Show()
@@ -487,6 +492,7 @@ class CameraPanel(wx.Panel):
 
         self.SetSizerAndFit(Sizer)
     # start stream and recording the camera
+
     def onStart(self, event=None, saving = True):
         #self.name = self.textBox.GetValue()
         #if not self.name:
