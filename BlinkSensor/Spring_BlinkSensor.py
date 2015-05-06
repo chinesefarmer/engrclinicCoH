@@ -263,6 +263,9 @@ class BlinkSensor:
             i = len(self.IRVector)-1
             
             #Take the derivative
+            if debug:
+                print self.secVector[i]
+                print self.secVector[i-1]
             deriv = (self.IRVector[i]-self.IRVector[i-1])/(self.secVector[i]-self.secVector[i-1])
 
             #If it's a positive slope above the threshold, start tracking
@@ -749,7 +752,11 @@ class BlinkSensor:
                 elif mode==1:
                     Blinks.append(float(row[4]))
                     ActualBlinks.append(float(row[5]))
-                Time.append(float(row[2]))
+                #####CHANGE THIS NICOLE
+                if(float(row[2])<49):
+                    Time.append(float(row[2])+60)
+                else:
+                    Time.append(float(row[2]))
                 RawIR.append(float(row[3]))
                 
             if mode ==1:
