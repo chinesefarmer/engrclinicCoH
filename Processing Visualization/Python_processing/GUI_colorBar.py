@@ -35,6 +35,7 @@ import time as tm
 
 #from datetime import *
 from outputnumbers import SerialData
+from copy import deepcopy
 
 ################################################################################
 class MainFrame(wx.Frame):
@@ -62,12 +63,12 @@ class MainFrame(wx.Frame):
 
 
         #init those sensor plots
-        sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
-        sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
+        sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
 
-        #self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        #sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
-        self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
+        self.displayPanel1 = ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Pitch Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth Pitch")
+        sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Roll Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Smooth Roll")
         sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
         
         sizerH.Add(sizerDisplayV1, 1, wx.EXPAND)
@@ -107,9 +108,9 @@ class MainFrame(wx.Frame):
         self.paused = False
         self.blinkIndex = 7
         self.pitchIndex = 6
-        self.smoothRindex = 4 
+        self.smoothRindex = 2
         self.smoothPindex = 3
-        self.smoothYindex = 2
+        self.smoothYindex = 4
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -122,7 +123,8 @@ class MainFrame(wx.Frame):
                     pass    
                 else:
                     self.gotData = True
-                    self.displayPanel2.data = self.data
+                    self.displayPanel1.data = self.data
+                    #self.displayPanel2.data = self.data
 
             except KeyboardInterrupt:
                 pass
@@ -133,7 +135,8 @@ class MainFrame(wx.Frame):
         self.gotData = False
         label = "Resume all Sensors" if (~self.paused) else "Pause all Sensors"
 
-        self.displayPanel2.paused = False if self.displayPanel2.paused else True
+        self.displayPanel1.paused = False if self.displayPanel1.paused else True
+        #self.displayPanel2.paused = False if self.displayPanel2.paused else True
         pass
 
     def saveAll(self, event=None):
@@ -162,9 +165,16 @@ class ColorPanel(wx.Panel):
         self.xmin = 0
         self.xmax = 360
         self.ymin = 0
-        self.ymax = 10
+        self.ymax = 1
+        self.res = 361
+        self.safeVal = 170
 
-        hmesh, self.mesh= np.mgrid[self.ymin:self.ymax, self.xmin:self.xmax]
+        linAngle = np.linspace(self.xmin, self.xmax, self.res)
+        diffSafe = self.xmax - self.safeVal
+        linAngle[self.safeVal:] = np.linspace(diffSafe,0, (diffSafe + 1))
+        print linAngle
+        #print "length", len(linGauss)
+        self.mesh = np.tile(linAngle,(self.ymax,1))
         self.title = title
         self.xAxisLabel = xAxisLabel
         self.yAxisLabel = yAxisLabel
@@ -184,10 +194,14 @@ class ColorPanel(wx.Panel):
         self.init_plot()
         
         self.canvas = FigCanvas(self, -1, self.fig)
+
+        self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+
         self.hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         
         self.vbox = wx.BoxSizer(wx.VERTICAL)
         self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)        
+        self.vbox.Add(self.hbox1, 0, flag=wx.ALIGN_LEFT | wx.TOP)
         self.vbox.Add(self.hbox2, 0, flag=wx.ALIGN_LEFT | wx.TOP)
         
         self.SetSizer(self.vbox)
@@ -212,34 +226,40 @@ class ColorPanel(wx.Panel):
         # to the plotted line series
         print "init ColorPanel", self.data, self.sensorVal
         #print self.sensorVal
-        
-        self.color_sensor = self.axes_sensor1.pcolormesh(self.mesh, cmap='RdBu', vmin = self.xmin, vmax=self.xmax)
 
+        #plot = self.mesh[:,self.sensorVal:]
+        currplot = self.mesh
+        currplot[:,self.sensorVal:]=-1000
+        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.safeVal)
+        #self.color_sensor = self.axes_sensor1.pcolormesh(plot, cmap=None)
+
+        self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
+        self.axes_sensor1.set_ybound(lower=self.ymin, upper=self.ymax)
 
     def draw_plot(self):
         """ Redraws the plot
         """
         # when xmin is on auto, it "follows" xmax to produce a 
         # sliding window effect. therefore, xmin is assigned after
-        # xmax.
-        xmin = 0
-        xmax = 360
-        ymin = 0
-        ymax = max(self.sensorVal)
-
+        # xmax
         #if self.ymax_control.is_auto():
         #    ymax = round(max(self.sensorVal1), 0) + 1
         #else:
         #    ymax = int(self.ymax_control.manual_value())
 
-        self.axes_sensor1.set_xbound(lower=xmin, upper=xmax)
-        self.axes_sensor1.set_ybound(lower=ymin, upper=ymax)
         #print "sensorVal", self.sensorVal
         #print "returntype:", len(self.bar_sensor), len(self.sensorVal)
         #print self.sensorVal
-        for rect, h in zip(self.bar_sensor, self.sensorVal):
-            rect.set_height(h)
+        #plot = self.mesh[:,self.sensorVal:]
+        currplot =deepcopy(self.mesh)
+        currplot[:,self.sensorVal:]=0
+        self.color_sensor.set_array(currplot.ravel())
+        #self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap=None, vmin = self.xmin, vmax=self.safeVal)
+        self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
+        self.axes_sensor1.set_ybound(lower=self.ymin, upper=self.ymax)
+
         self.canvas.draw()
+        self.pause = True
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -251,10 +271,13 @@ class ColorPanel(wx.Panel):
                 else:
                     #print "here"
                     self.sensorVal = self.data[self.index]
-                    #print self.sensorVal
+                    #print "sensorVal", self.sensorVal
+                    
                     self.draw_plot()
             except KeyboardInterrupt:
                 pass
+    def gaussian(self, x, mu, sig):
+        return np.exp(-(x - mu)**2) / (2 * sig ** 2)
 ################################################################################
 class BarPanel(wx.Panel):
     """ The graphing frames frame of the application
@@ -295,10 +318,6 @@ class BarPanel(wx.Panel):
         self.init_plot()
         
         self.canvas = FigCanvas(self, -1, self.fig)
-
-        #self.pause_button = wx.Button(self, -1, "Pause")
-        #self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
-        #self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
         self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         #self.hbox1.Add(self.pause_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
@@ -379,12 +398,13 @@ class BarPanel(wx.Panel):
                     self.draw_plot()
             except KeyboardInterrupt:
                 pass
+
 ################################################################################
 def buildGUI():
-	app = wx.App(False)
-	frame = MainFrame(None, "editor")
-	#frame = MyFrame(None, 'Small editor')
-	app.MainLoop()
+    app = wx.App(False)
+    frame = MainFrame(None, "editor")
+    #frame = MyFrame(None, 'Small editor')
+    app.MainLoop()
 
 if __name__ == '__main__':
-	buildGUI()
+    buildGUI()

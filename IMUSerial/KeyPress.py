@@ -7,6 +7,13 @@ import numpy as np
 
 keyPressVector = []
 
+'''
+User presses enter every time the subject blinks. The time stamp of this key press is saved in
+a .npy file which is later read by Spring_BlinkSensor.py and appended to the file containing all
+the blink sensor data
+Inputs:     None
+Outputs:    None
+'''
 def KeyPress():
     blink = ''
     while True:
@@ -30,7 +37,5 @@ def getKeyPressVector():
     return keyPressVector
 
 
-
 if __name__=='__main__':
-#    while True:
         KeyPress()

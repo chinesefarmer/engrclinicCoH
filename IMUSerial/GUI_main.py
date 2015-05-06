@@ -32,11 +32,11 @@ from math import *
 import msvcrt as m
 import numpy as np
 import pylab as pl
-import time as tm
+import time as tm  
 
 #from datetime import *
 
-
+ 
 ################################################################################
 class sensorData(object):
 	def __init__(self):

@@ -15,16 +15,16 @@ if __name__=='__main__':
 
     global filename,filenameIMU,filenameBlink
     #Writes the raw data for the blink sensor
-    #filename = raw_input('Enter a file name:  ')+ ".csv"
-    filename = ""
+    filename = raw_input('Enter a file name:  ')+ ".csv"
+    #filename = ""
     #Writes the raw data for the IMU
     filenameIMU = (filename[:-4] + 'IMU.csv' )
     #Reads the data to process for the blink sensor
     filenameBlink = (filename[:-4] + 'Blink.csv' )
 
-    usb = Serial('COM5', 57600)
+    usb = Serial('COM4', 57600)
     blinkSensor = bs.BlinkSensor()
-    blinkSensor.CheckKeyPress = False
+    blinkSensor.CheckKeyPress = True
     blinkSensor.filename = filenameBlink
     bs.initSerialConnection(usb, blinkSensor)
     imuSensor = imu.IMUSensor()
@@ -61,7 +61,8 @@ if __name__=='__main__':
                     # rollMax,rollFocus, pitchMax ,pitchFocus, yawMax ,yawFocus] # *Max is the focus angle and
                                                                         # *focus is the percent time focusing
                     processedData = imuSensor.processIMUData(IMUData)
-
+                    #print processedData[8]
+                    #print processedData[9]
                     # Handles the IR Sensor
                     try:
                        IR1 = float((serialData[1])[0])
@@ -73,7 +74,7 @@ if __name__=='__main__':
                        print "Value Error"
 
                     # Slows down the cycle enough to prevent divide by zero errors
-##                    tm.sleep(.001)
+                    #tm.sleep(.01)
 
                     
 ##      Run only at the end of the op  
