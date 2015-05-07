@@ -66,8 +66,9 @@ class MainFrame(wx.Frame):
         sizerDisplayV1 = wx.BoxSizer(wx.VERTICAL)
         sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
-        self.displayPanel1 = ColorPanel(self, source=self.data, index = self.smoothYindex, timerSource = self.redraw_timer, title = "Pitch Data", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
-        sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        #self, parent, source, focusIndex, percentIndex, timerSource = [datetime.datetime.now().time()] , title = "Focus on the Operating Field in Degrees", xAxisLabel = "x axis", yAxisLabel = "y axis"
+        self.displayPanel1 = ColorPanel(self, source=self.data, focusIndex = self.pitchMaxIndex,percentIndex =self.combpitchYawIndex , timerSource = self.redraw_timer, title = "Focus on the Operating Field", xAxisLabel = "Percent Focus", yAxisLabel = "")
+        sizerDisplayV2.Add(self.displayPanel1, 1, wx.EXPAND|wx.LEFT)
         #self.displayPanel2 = BarPanel(self, source=self.data, index = self.pitchIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         #sizerDisplayV1.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
         
@@ -106,11 +107,19 @@ class MainFrame(wx.Frame):
         self.redraw_timer.Start(1) #refresh rate in ms
         
         self.paused = False
-        self.blinkIndex = 7
-        self.pitchIndex = 6
-        self.smoothRindex = 2
-        self.smoothPindex = 3
-        self.smoothYindex = 4
+        self.gotData = False
+        self.paused = False
+        self.blinkIndex = 2
+
+        self.smoothRindex = 3 
+        self.smoothPindex = 4
+        self.smoothYindex = 5
+
+        self.pitchMaxIndex = 11
+        self.pitchFocusIndex = 12
+        self.yawMaxIndex = 13
+        self.yawFocusIndex = 14
+        self.combpitchYawIndex = 15
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -169,17 +178,14 @@ class ColorPanel(wx.Panel):
         self.sensorDist = self.data[focusIndex]
         self.sumVal = 0.0
         self.xmin = 0
-        self.xmax =101
+        self.xmax =100 #Min to max is 100 datapoints exactly for percentages
+        self.xcolorMax = 120
         self.ymin = 0
         self.ymax = 1
-        self.res = 100
-        self.medVal = 50
+        self.res = 101
+        self.medVal = 51 #medium value for coloring purposes.
 
-        linAngle = np.linspace(self.xmin, self.xmax, self.res)
-        diffSafe = self.xmax - self.medVal
-        linAngle[self.medVal:] = np.linspace(diffSafe,0, (diffSafe + 1))
-        #print linAngle
-        #print "length", len(linGauss)
+        linAngle = np.ones(self.res)
         self.mesh = np.tile(linAngle,(self.ymax,1))
         self.title = title
         self.xAxisLabel = xAxisLabel
@@ -191,24 +197,20 @@ class ColorPanel(wx.Panel):
         self.create_main_panel()
         
         self.redraw_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-        self.redraw_timer.Start(1) #refresh rate in ms
+        #self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
+        #self.redraw_timer.Start(1) #refresh rate in ms
 
     def create_main_panel(self):
         self.panel = wx.Panel(self)
 
         self.init_plot()
         
-        self.canvas = FigCanvas(self, -1, self.fig)
-
-        self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-
-        self.hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        self.canvas = FigCanvas(self, 0, self.fig)
         
         self.vbox = wx.BoxSizer(wx.VERTICAL)
-        self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)        
-        self.vbox.Add(self.hbox1, 0, flag=wx.ALIGN_LEFT | wx.TOP)
-        self.vbox.Add(self.hbox2, 0, flag=wx.ALIGN_LEFT | wx.TOP)
+        #self.vbox.AddSpacer(5,5)
+        self.vbox.Add(self.canvas, 0, flag=wx.EXPAND)        
+        #self.vbox.AddSpacer(5,5)
         
         self.SetSizer(self.vbox)
         self.vbox.Fit(self)
@@ -226,10 +228,6 @@ class ColorPanel(wx.Panel):
         self.axes_sensor1.set_xlabel(self.xAxisLabel, size = 8)
         #self.axes_sensor1.set_ylabel(self.yAxisLabel, size = 8)
 
-        #self.axes_sensor1.
-        #pl.setp(self.axes_sensor1.get_xticklabels(), fontsize=8)
-        #pl.setp(self.axes_sensor1.get_yticklabels(), fontsize=8)
-
         # plot the data as a line series, and save the reference 
         # to the plotted line series
         print "init ColorPanel", self.data, self.sensorVal
@@ -238,7 +236,7 @@ class ColorPanel(wx.Panel):
         cmap = plt.get_cmap('jet_r')
         cmap.set_bad(color = 'k', alpha = 1)
         #currplot[:,self.sensorVal:]=-1000
-        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.medVal)
+        self.color_sensor = self.axes_sensor1.pcolormesh(currplot, cmap='jet_r', vmin = self.xmin, vmax=self.xcolorMax)
 
         #plot = self.mesh[:,self.sensorVal:]
         self.axes_sensor1.set_xbound(lower=self.xmin, upper=self.xmax)
@@ -259,11 +257,10 @@ class ColorPanel(wx.Panel):
         #print "returntype:", len(self.bar_sensor), len(self.sensorVal)
         #print self.sensorVal
         #plot = self.mesh[:,self.sensorVal:]
-        currplot = deepcopy(self.mesh)
-        minVal = self.medVal - self.sensorVal/2
-        maxVal = self.medVal + self.sensorVal/2
-        currplot[:,minVal:] = np.nan
-        currplot[:,0:minVal] = np.nan
+        currplot = self.mesh * self.sensorVal
+        #print "len currplot", len(currplot)
+        currplot[:,self.sensorVal:] = np.nan
+
         currplot = np.ma.masked_invalid(currplot)
         #currplot[:,self.sensorVal:]=-100
         self.color_sensor.set_array(currplot.ravel())
@@ -275,21 +272,7 @@ class ColorPanel(wx.Panel):
         self.canvas.Refresh()
         self.pause = True
 
-    def on_redraw_timer(self, event):
-        # if paused do not add data, but still redraw the plot
-        # (to respond to scale modifications, grid change, etc.)
-        if not self.paused:
-            try:    
-                if(self.data[0] != 1):
-                    pass
-                else:
-                    #print "here"
-                    self.sensorVal = self.data[percentIndex]
-                    #print "sensorVal", self.sensorVal
-                    
-                    self.draw_plot()
-            except KeyboardInterrupt:
-                pass
+
     def refresh(self):
         if not self.paused:
             try:    
@@ -297,7 +280,7 @@ class ColorPanel(wx.Panel):
                     pass
                 else:
                     #print "here"
-                    self.sensorVal = self.data[percentIndex]
+                    self.sensorVal = int(self.data[self.percentIndex]*100)
                     #print "sensorVal", self.sensorVal
                     
                     self.draw_plot()
@@ -423,8 +406,8 @@ class BarPanel(wx.Panel):
                     pass
                 else:
                     #print "here"
-                    self.sensorVal = self.data[self.index]
-                    #print self.sensorVal
+                    self.sensorVal =self.data[self.index]
+                    print self.sensorVal
                     self.draw_plot()
             except KeyboardInterrupt:
                 pass

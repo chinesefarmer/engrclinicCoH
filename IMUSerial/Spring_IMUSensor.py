@@ -30,7 +30,7 @@ class IMUSensor:
         # Number of iterations during calibration step
         self.calibrationNo = 100
 
-        self.gyroReFocus = .99
+        self.gyroReFocus = .9995
 # ------------------------------------------------------------------------------
         # Parameters required for operation (Non-Customizable)------------------- 
 

@@ -188,24 +188,29 @@ class sensorData(object):
                         numRecentBlinks = self.blinkSensor.Algorithm(IR1, False)
                         if(numRecentBlinks != 0):
                             self.prevBlinks = numRecentBlinks
-                            outputData = [1,1] + [numRecentBlinks] + processedData
+                            combData = (processedData[11] + processedData[9])/2.0
+                            outputData = [1,1] + [numRecentBlinks] + processedData + [combData]
+
+
                         else:
                             #print "trigger blink sensor data"
-                            outputData = [1,1] + [self.prevBlinks] + processedData
+                            combData = (processedData[11] + processedData[9])/2.0
+                            outputData = [1,1] + [self.prevBlinks] + processedData  + [combData]
 
                         #print "output withIR"
                     except ValueError:
-                        outputData = [1,1] + [0] + processedData
+                        combData = (processedData[11] + processedData[9])/2.0
+                        outputData = [1,1] + [0] + processedData  + [combData]
                         print "Value Error"
 
                     # # Slows down the cycle enough to prevent divide by zero errors
                     # tm.sleep(.001)
                 else:
                     #print "imu data not ready"
-                    outputData =  [0,0] + [0,0,0,0,0,0]
+                    outputData =  [0,0] + [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
             else:
                 print "no sensor data"  
-                outputData =  [0,0] + [0,0,0,0,0,0]
+                outputData =  [0,0] + [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
             
             #print "my outputs???", outputData
             #print "output data", outputData[0:3]
@@ -269,30 +274,31 @@ class MainFrame(wx.Frame):
         #comment out hear for threading
         #self.OnStart()
 
-        self.sizerDisplayV1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.sizerDisplayV2 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizerDisplayH1 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
 
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
-        self.sizerDisplayV1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
-        
-        self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        self.sizerDisplayH1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
 
-        self.sizerDisplayV1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        #self.sizerDisplayH1.AddSpacer(5,5)
+        self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
+        self.sizerDisplayH1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
 
         #comment this out
-        self.displayPanel2 =  ColorPanel(self, source=self.data, focusIndex = self.pitchMaxIndex, percentIndex = self.pitchFocusIndex, timerSource = self.redraw_timer, title = "Focus on the Operating Field", xAxisLabel = "Percent Pitch", yAxisLabel = "Percent Pitch")
-        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
+        self.displayPanel2 = ColorPanel(self, source=self.data, focusIndex = self.pitchFocusIndex,percentIndex =self.combpitchYawIndex , timerSource = self.redraw_timer, title = "Focus on the Operating Field", xAxisLabel = "Percent Focus", yAxisLabel = "")
+        self.sizerDisplayV2.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
+        #self.sizerDisplayV2.AddSpacer(5,5)
+        # self.displayPanel3 =  ColorPanel(self, source=self.data, focusIndex = self.yawMaxIndex, percentIndex = self.yawFocusIndex, timerSource = self.redraw_timer, title = "Percentage Head Tilt", xAxisLabel = "Percent Yaw", yAxisLabel = "")
+        # self.sizerDisplayV2.Add(self.displayPanel3, 1,wx.EXPAND|wx.ALL)
+        #self.sizerDisplayV2.AddSpacer(5,5)
 
-        self.displayPanel2 =  ColorPanel(self, source=self.data, focusIndex = self.yawMaxIndex, percentIndex = self.yawFocusIndex, timerSource = self.redraw_timer, title = "Head Tilt in the Operating Field", xAxisLabel = "Percent Yaw", yAxisLabel = "Percent Yaw")
-        self.sizerDisplayV2.Add(self.displayPanel2, 0, wx.BOTTOM)
-
-        sizerH.Add(self.sizerDisplayV1, 1, wx.EXPAND)
+        sizerH.Add(self.sizerDisplayH1, 1, wx.EXPAND)
         sizerH.Add(self.sizerDisplayV2, 1, wx.EXPAND)
         self.displayPanelBlink.Hide()
         self.displayPanel1.Hide()
-        self.sizerDisplayV1.Hide(self)
-        self.sizerDisplayV1.Layout()
+        self.sizerDisplayH1.Hide(self)
+        self.sizerDisplayH1.Layout()
 
         
 
@@ -320,7 +326,7 @@ class MainFrame(wx.Frame):
     def initSensors(self):
         # Sensor inputs
         #self.s = sensorData()
-        self.data = [0,0,0,0,0,0,0,0]
+        self.data = np.zeros(16)
         self.worker = None
         self.startSensorBtn = wx.Button(self, ID_START, label="Start Sensors")
         self.pauseSensorBtn = wx.Button(self, ID_STOP, label="Stop Sensors and Save")
@@ -334,6 +340,8 @@ class MainFrame(wx.Frame):
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
         self.redraw_timer.Start(10) #refresh rate in ms
+        self.startSensorBtn.Enable(True)
+        self.pauseSensorBtn.Enable(False)
 
         #[1,1] + [self.prevBlinks] + processedData
         # processedData = [smoothRoll,smoothPitch,smoothYaw,
@@ -352,6 +360,7 @@ class MainFrame(wx.Frame):
         self.pitchFocusIndex = 12
         self.yawMaxIndex = 13
         self.yawFocusIndex = 14
+        self.combpitchYawIndex = 15
 
         #self.OnStart()
     #def bindEvents(self):
@@ -374,10 +383,10 @@ class MainFrame(wx.Frame):
                     showColor = self.cb_color.IsChecked()
                     if (showColor):
                         self.displayPanel2.data = self.data
-                        self.displayPanel3.data = self.data
+                        #self.displayPanel3.data = self.data
                         #print "got data to main frame"
                         self.displayPanel2.refresh()
-                        self.displayPanel3.refresh()
+                        #self.displayPanel3.refresh()
                         pass
                     else: 
                         self.displayPanelBlink.data=self.data
@@ -403,21 +412,21 @@ class MainFrame(wx.Frame):
             self.displayPanelBlink.Hide()
             self.displayPanel1.Hide()
 
-            self.sizerDisplayV1.Hide(self)
+            self.sizerDisplayH1.Hide(self)
             self.displayPanel2.Show()
-            self.displayPanel3.Show()
+            #self.displayPanel3.Show()
             self.sizerDisplayV2.Show(self)
 
             pass
         else:
             self.displayPanelBlink.Show()
             self.displayPanel1.Show()
-            self.sizerDisplayV1.Show(self)
+            self.sizerDisplayH1.Show(self)
             self.displayPanel2.Hide()
-            self.displayPanel3.Hide()
+            #self.displayPanel3.Hide()
             self.sizerDisplayV2.Hide(self)
             pass
-        self.sizerDisplayV1.Layout()
+        self.sizerDisplayH1.Layout()
         self.sizerDisplayV2.Layout()
         self.Layout()
         self.Fit()
@@ -435,7 +444,7 @@ class MainFrame(wx.Frame):
         self.displayPanel1.paused = not self.displayPanel1.paused
         self.displayPanelBlink.paused = not self.displayPanelBlink.paused
         self.displayPanel2.paused = not self.displayPanel2.paused
-        self.displayPanel3.paused = not self.displayPanel3.paused
+        #self.displayPanel3.paused = not self.displayPanel3.paused
         #self.OnStop()
         pass
         
@@ -443,12 +452,16 @@ class MainFrame(wx.Frame):
         if not self.worker:
             print "starting Thread..."
             self.worker = WorkerThread(self, self.data)
+            self.startSensorBtn.Enable(False)
+            self.pauseSensorBtn.Enable(True)
 
     def OnStop(self, event = None):
         #print "trying to pause it?", self.worker
         if self.worker:
             self.worker.abort()
             self.worker = None
+            self.startSensorBtn.Enable(True)
+            self.pauseSensorBtn.Enable(False)
 
     def OnResult(self, event = None):
         if event.data == None:
@@ -476,6 +489,7 @@ class CameraPanel(wx.Panel):
         wx.Panel.__init__(self, parent)
 
         self.parent = parent  # Sometimes one can use inline Comments
+        self.cameraStart = False
 
         self.CameraStartBtn = wx.Button(self, label="Start Stream")
         self.CameraStartBtn.Bind(wx.EVT_BUTTON, self.onStart)
@@ -486,6 +500,8 @@ class CameraPanel(wx.Panel):
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.CameraStartBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         Sizer.Add(self.CameraStopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        self.CameraStartBtn.Enable(True)
+        self.CameraStopBtn.Enable(False)
         #Sizer.Add(self.textBox)
 
         self.SetSizerAndFit(Sizer)
@@ -494,35 +510,43 @@ class CameraPanel(wx.Panel):
     def onStart(self, event=None, saving = True):
         #self.name = self.textBox.GetValue()
         #if not self.name:
-        dt = datetime.datetime.now()
-        name = dt.strftime("\%m%d%Y_%H%M%p_")
-        #else:
-        #    name = self.directoryName
+        if not self.cameraStart:
+            self.cameraStart = True
+            self.CameraStartBtn.Enable(False)
+            self.CameraStopBtn.Enable(True)
+            dt = datetime.datetime.now()
+            name = dt.strftime("\%m%d%Y_%H%M%p_")
+            #else:
+            #    name = self.directoryName
 
-        stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
+            stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 
-        save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop' + name + 'TestLog_mp4.mp4}\'}\"'
-        #name + '.mp4}\'}\"' #
-        if saving:
-         save = save
-        else:
-            save = ''
+            save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop' + name + 'TestLog_mp4.mp4}\'}\"'
+            #name + '.mp4}\'}\"' #
+            if saving:
+             save = save
+            else:
+                save = ''
 
-        command_line = stream + save
-        #print command_line
-        args = shlex.split(command_line)
-        #print args
-        p = subprocess.Popen(args)
-        time.sleep(1)
-        return 1
+            command_line = stream + save
+            #print command_line
+            args = shlex.split(command_line)
+            #print args
+            p = subprocess.Popen(args)
+            time.sleep(1)
+            return 1
 
     #exit out of the streaming camera safetly
     def closeCamera(self, event=None):
-        args = shlex.split('ivanbatch.bat')
-        l = subprocess.call(args)
-        time.sleep(1)
-        return 1
-        
+        if self.cameraStart:
+            self.cameraStart = False
+            self.CameraStartBtn.Enable(True)
+            self.CameraStopBtn.Enable(False)
+            args = shlex.split('ivanbatch.bat')
+            l = subprocess.call(args)
+            time.sleep(1)
+            return 1
+            
 
     def OnMsgBtn(self, event=None):
         """Bring up a wx.MessageDialog with a useless message."""

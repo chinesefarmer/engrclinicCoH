@@ -469,6 +469,10 @@ class GraphPanel(wx.Panel):
 		# when xmin is on auto, it "follows" xmax to produce a 
 		# sliding window effect. therefore, xmin is assigned after
 		# xmax.
+
+		ymax = max(self.sensorVal) + 10
+		ymin = -5
+
 		#
 		if self.xmax_control.is_auto():
 			xmax = len(self.sensorVal) if len(self.sensorVal) > 50 else 50

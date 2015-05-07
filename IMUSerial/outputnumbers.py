@@ -5,22 +5,28 @@ import time
 
 
 class SerialData(object):
-	def __init__(self, init=50, length=8):
+	def __init__(self, init=50, length=16):
 		self.dataSet = [] #IR1, IR2, IR3, light
 		self.len = length
-		self.genData()
-		self.genArray()
 
 	def genRandom(self, rangeL, rangeH):
 		return random.uniform(rangeL, rangeH)
 
+	def next(self):
+		self.genData(self.len)
+		#self.genArray()
+		#print "gennext"
+		return self.dataSet
 
-	def genData(self):
+	
+	def genData(self, length=15):
 		newData = [1]
 		for i in range(self.len-1):
 			newData.append(self.genRandom(1, 50))
-		newData[4] = self.genRandom(200, 360)
+		newData[4] = self.genRandom(0, 360)
+		newData[15] = self.genRandom(0,1)
 		self.dataSet = newData
+
 
 	def genArray(self, index=6):
 		array = []
@@ -28,11 +34,6 @@ class SerialData(object):
 			array.append(int(self.genRandom(0,100)))
 		self.dataSet[index] = array
 
-	def next(self):
-		self.genData()
-		self.genArray()
-		#print "gennext"
-		return self.dataSet
 
 	def __del__(self):
 		pass
