@@ -89,6 +89,11 @@ class IMUSensor:
         self.timeAtPitch = np.zeros(360)
         self.timeAtYaw = np.zeros(360)
 
+        # Sets the Window of the time distribution
+
+        #For Testing
+        self.smoothYawAll = []
+
         # The name of the file that will have all the sensor data saved to it
         self.filenameIMU = ''
 # -------------------------------------------------------------------------------
@@ -297,6 +302,12 @@ class IMUSensor:
         # Calculates the time that the IMU is oriented at each of the angles in
         #  roll, pitch, and yaw
         self.timeAtAngle(smoothRoll,smoothPitch,smoothYaw)
+
+
+
+        # The integer values denote which RPY data is being passed
+        # The first variable  is the angle and the other variable is the percentage 
+        # focusing
 
         # Calculates the percentage focus
         # The integer values 0, 1, and 2 denote which RPY data is being passed
