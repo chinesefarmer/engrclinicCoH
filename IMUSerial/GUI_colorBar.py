@@ -2,19 +2,15 @@
 ################################################################################
 # This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
 # from Harvey Mudd College
-# It is used to create a GUI for displaying blinks with an IR blink sensor,
-# displaying percentage focus in real time and streaming and recording data
-# GUI_main.py requires GUI_colorBar.py and GUI_plotPanel.py to plot properly.
-# It also requires the Spring_Blinksensor.py and Spring_IMUSensor.py, as well. 
+# It is used to display percentage focus in real time and streaming and recording data
+# GUI_main.py requires GUI_colorBar.py to plot properly.
 # 
-# As of hardware, the sensor package is required to run the program properly. 
-# specifically, the arduino teensy 3.1 needs to be connected to one of the COM ports
-# on the computer. The streaming camera logitech C615 needs to be connected for 
-# camera streaming to work. 
+# This piece of code requires outputnumbers.py just to make sure it works.
+#
 # Additional arduino, python libraries also need to be installed. 
 # Please see the installation section in the appendix of the final report for details.
-# Code was last changed at:
-# May 6, 2015, Claremont, California 
+# Code was last changed on:
+# May 8, 2015, Claremont, California 
 ################################################################################
 
 import cmd
@@ -56,8 +52,6 @@ class MainFrame(wx.Frame):
         #init GUI Buttons
         StopBtn = wx.Button(self, label="Stop All Sensors")
         StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
-        SaveBtn = wx.Button(self, label= "Save All Data")
-        SaveBtn.Bind(wx.EVT_BUTTON, self.saveAll)
 
         sizerV.Add(StopBtn, 0,wx.ALIGN_CENTER|wx.ALL, 5)
         sizerV.AddSpacer(5,5)
@@ -79,9 +73,6 @@ class MainFrame(wx.Frame):
         # Setting up the menu bar
         filemenu= wx.Menu()
 
-        # wx.ID_ABOUT and wx.ID_EXIT are standard IDs provided by wxWidgets.
-        filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
-        filemenu.AppendSeparator()
         item = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.onQuit, item)
 

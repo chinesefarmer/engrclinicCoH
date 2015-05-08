@@ -14,7 +14,7 @@
 # Additional arduino, python libraries also need to be installed. 
 # Please see the installation section in the appendix of the final report for details.
 # Code was last changed at:
-# May 6, 2015, Claremont, California 
+# May 8, 2015, Claremont, California 
 ################################################################################
 import cmd
 import subprocess
@@ -55,6 +55,7 @@ ID_START = wx.NewId()
 ID_STOP = wx.NewId()
 # Define notification event for thread completion
 EVT_RESULT_ID = wx.NewId()
+#Helper code
 ################################################################################
 #iniitalize the threading events
 def EVT_RESULT(win, func):
@@ -62,7 +63,7 @@ def EVT_RESULT(win, func):
     win.Connect(-1, -1, EVT_RESULT_ID, func)
 
 class ResultEvent(wx.PyEvent):
-    """Simple event to carry arbitrary result data."""
+    """Simple event to carry result data."""
     def __init__(self, data):
         """Init Result Event."""
         wx.PyEvent.__init__(self)
@@ -232,25 +233,22 @@ class MainFrame(wx.Frame):
         sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
 
         #init GUI
-        #self.StopBtn = wx.Button(self, label="Stop Plotting")
-        #self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
-
         #this runs the threading for updating the sensor data
-        sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-        sizerV.AddSpacer(5,5)
         sizerV.Add(self.startSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         sizerV.AddSpacer(5,5)
+        sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        sizerV.AddSpacer(5,5)
+
 
         ######################
         # Draw the widgets (Sizer, button)   
         #Control panel    
-        # sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-        # sizerV.AddSpacer(5,5)
-
-        self.Panel3 = CameraPanel(self)
+        #camera panel
+        self.cameraPanel = CameraPanel(self)
         sizerV.AddSpacer(5,5)
-        sizerV.Add(self.Panel3, 0, wx.EXPAND)
+        sizerV.Add(self.cameraPanel, 0, wx.EXPAND)
 
+        #the checkbox
         self.cb_color = wx.CheckBox(self, -1, "Show Color Grid",style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_color, self.cb_color)
         self.cb_color.SetValue(True)
@@ -267,7 +265,6 @@ class MainFrame(wx.Frame):
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
-
         ##########################
         #Display Panel
         self.sizerDisplayH1 = wx.BoxSizer(wx.HORIZONTAL)
@@ -358,7 +355,6 @@ class MainFrame(wx.Frame):
 
             self.sizerDisplayH1.Hide(self)
             self.displayPanel2.Show()
-            #self.displayPanel3.Show()
             self.sizerDisplayV2.Show(self)
 
             pass
@@ -375,17 +371,13 @@ class MainFrame(wx.Frame):
         self.Fit()
         pass
 
-    # def stopAll(self, event = None):
-    #     """stop or start all plots"""
-    #     self.paused = not self.paused
-
-    #     label = "Resume Plotting" if (self.paused) else "Pause Plotting"
-    #     self.StopBtn.SetLabel(label)
-
-    #     self.displayPanel1.paused = not self.displayPanel1.paused
-    #     self.displayPanelBlink.paused = not self.displayPanelBlink.paused
-    #     self.displayPanel2.paused = not self.displayPanel2.paused
-    #     pass
+    def stopAll(self, event = None):
+        """stop or start all plots"""
+        self.paused = not self.paused
+        self.displayPanel1.paused = not self.displayPanel1.paused
+        self.displayPanelBlink.paused = not self.displayPanelBlink.paused
+        self.displayPanel2.paused = not self.displayPanel2.paused
+        pass
         
     def OnStart(self, event = None):
         if not self.worker:
@@ -401,6 +393,8 @@ class MainFrame(wx.Frame):
             self.worker = None
             self.startSensorBtn.Enable(True)
             self.pauseSensorBtn.Enable(False)
+            self.stopAll() # stop the plotting 
+            self.cameraPanel.closeCamera() #close camera as well
 
     def OnResult(self, event = None):
         if event.data == None:
@@ -419,8 +413,6 @@ class MainFrame(wx.Frame):
 ################################################################################
 class CameraPanel(wx.Panel):
     """This panel holds Extra Controls for controlling the camera"""
-
-    #----------------------------------------------------------------------
     def __init__(self, parent):
         """Constructor"""
         wx.Panel.__init__(self, parent)
@@ -448,13 +440,10 @@ class CameraPanel(wx.Panel):
             self.CameraStopBtn.Enable(True)
             dt = datetime.datetime.now()
             name = dt.strftime("\%m%d%Y_%H%M%p_")
-            #else:
-            #    name = self.directoryName
 
             stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=30'
 
             save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\HMC_clinic\\\Desktop' + name + 'TestLog_mp4.mp4}\'}\"'
-            #name + '.mp4}\'}\"' #
             if saving:
              save = save
             else:
@@ -491,70 +480,6 @@ class CameraPanel(wx.Panel):
         dlg.Destroy()
     
 ################################################################################
-class BoundControlBox(wx.Panel):
-    """ A static box with a couple of radio buttons and a text
-        box. Allows to switch between an automatic mode and a 
-        manual mode with an associated value.
-    """
-    def __init__(self, parent, ID, label, initval, checked = False):
-        wx.Panel.__init__(self, parent, ID)
-        
-        self.value = initval
-        
-        box = wx.StaticBox(self, -1, label)
-        sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
-        
-        self.auto = wx.CheckBox(self, -1, label = "Auto", style=wx.ALIGN_RIGHT)
-        self.auto.SetValue(checked)
-        self.manual_text = wx.TextCtrl(self, -1, 
-            size=(35,-1),
-            value=str(initval),
-            style=wx.TE_PROCESS_ENTER)
-        
-        self.Bind(wx.EVT_UPDATE_UI, self.on_update_manual_text, self.manual_text)
-        self.Bind(wx.EVT_TEXT_ENTER, self.on_text_enter, self.manual_text)
-        
-        sizer.Add(self.auto, 0, wx.EXPAND, 0)
-        sizer.Add(self.manual_text, 0, wx.EXPAND, 0)
-        
-        self.SetSizer(sizer)
-        sizer.Fit(self)
-    
-    def on_update_manual_text(self, event):
-        self.manual_text.Enable(not self.auto.GetValue())
-    
-    def on_text_enter(self, event):
-        self.value = self.manual_text.GetValue()
-    
-    def is_auto(self):
-        return self.auto.GetValue()
-        
-    def manual_value(self):
-        return self.value
-################################################################################
-def runCamera(name, saving=False):
-    stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=20'
-
-    save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
-    if saving:
-     save = save
-    else:
-        save = ''
-    command_line = stream + save
-    #print command_line
-    args = shlex.split(command_line)
-    #print args
-    p = subprocess.Popen(args)
-    time.sleep(1)
-    return 1
-
-def closeCamera():
-        args = shlex.split('ivanbatch.bat')
-        l = subprocess.call(args)
-        time.sleep(1)
-        return 1
-
-################################################################################
 def buildGUI():
     app = wx.App(False)
     frame = MainFrame(None, "Sensor Control Interface")
@@ -562,4 +487,3 @@ def buildGUI():
 
 if __name__ == '__main__':
     buildGUI()
-
