@@ -1,17 +1,40 @@
-/* This code has been adapted to work on the Teensy(from working originally on an Arduino) to work with 
-  both the blink sensor and the IMU to print out the sensor information to serial communication.
-*/
+//################################################################################
+//# This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
+//# from Harvey Mudd College
+//# It is used to program the teensy 3.1 microprocessor to interface with the 9DOF 
+//# FLORA LSMDSO sensor sold from Adafruit and interface with from the blink sensor 
+//# purchased from moderndevice.com called the sill43 proximity sensor in order to read 
+//# the data from the sensors and print the data to the serial comm ports. The arduino code
+//# is designed to work in conjunction with a python program which will receive the data passed through serial communication
+//# to process and save the collected data. The code below is
+//# borrows from sample code provided by Modern Devices and Adafruit. 
+//# Because the sample code was originally designed to interface with a standard
+//# arduino uno which only contains one i2c port, the code found in this file 
+//# contains altered code so that it will work with the teensy 3.1 with its two i2c ports.
+// 
+//# The blink sensor will return data that corresponds to the relative intensity received
+//# by the infrared detector on the sill43 sensor. This value will be larger if more light is
+//# reflected as corresponds to a closed eyelid if the sensor is positioned to face the eye.
+//
+//# The IMU will return the x, y, and z acceleration, angular velocity, and the magnetic field
+//# intensity as reported by the respective 3 accelerometers, the 3 gyroscopes, and the 3
+//# mangetometers, respectively.
+//
+//# Additional arduino, python libraries also need to be installed. 
+//# Please see the installation section in the appendix of the final report for details.
+//# Code was last changed at:
+//# May 7, 2015, Claremont, California 
+//################################################################################
 
 
-/* SI1143_proximity_demo.ino
+
+/* Sample Code for the Blink Senosr Reference
+ * SI1143_proximity_demo.ino
  * http://moderndevice.com/product/si1143-proximity-sensors/
  * Reads the Proximity Sensor and either prints raw LED data or angular data 
  * depending the options chosen in the #define's below
  * Paul Badger, Gavin Atkinson, Jean-Claude Wippler  2013
  */
-
-//$ Comments mean that I commented out a normal print line for the purpose of interfacing with
-//python.
 
 /*  
   For Arduino users use the following pins for various ports of the proximity sensor
@@ -23,6 +46,8 @@
   Connect 3.3V line to 3.3 volts.
 */
 
+// This is the library that runs the Blink Sensor. This library has been altered so that
+// it works with the custom designed blink sensor that was used in the clinic project
 #include <SI114.h>
 
 const int PORT_FOR_SI114 = 0;       // change to the JeeNode port number used, see the pin chart above        
@@ -37,11 +62,15 @@ PortI2C myBus (PORT_FOR_SI114);
 //pulse is of type PulsePlug, defined in header file
 PulsePlug pulse (myBus); 
 
-
+// Libraries Required for the IMU
 #include <SPI.h>
 //#include <Wire.h>
+
+// These libraries were altered so that the IMU would work on the second set of i2c ports on the teensy 3.1
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM9DS0.h>
+
+// Reference for the Sample IMU code
 // To get the arduino values: https://github.com/adafruit/Adafruit_LSM9DS0_Library
 
 /* This driver uses the Adafruit unified sensor library (Adafruit_Sensor),
@@ -56,7 +85,7 @@ PulsePlug pulse (myBus);
    provide an appropriate value in the constructor below (12345
    is used by default in this example).
    
-   Connections (For default I2C)
+   Connections (For second I2C)
    ===========
    Connect SCL to analog 29
    Connect SDA to analog 30
@@ -66,12 +95,15 @@ PulsePlug pulse (myBus);
    History
    =======
    2014/JULY/25  - First version (KTOWN)
+   2015/MAY/7    - Altered for teensy (City of Hope Tracking Clinic Team)
 */
    
 /* Assign a unique base ID for this sensor */   
 Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
+// The IMU is connected to the teensy 3.1 through the i2c port and not the SPI connection
 
+// ------------------ Only used for SPI connection (not applicable for this project)--------------------------
 /* Or, use Hardware SPI:
   SCK -> SPI CLK
   SDA -> SPI MOSI
@@ -92,11 +124,12 @@ Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 #define LSM9DS0_MISO 12
 #define LSM9DS0_MOSI 11
 
+// Enable this comment if the SPI connection for the IMU is desired (the circuit will need to be rewired)
 //Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(LSM9DS0_SCLK, LSM9DS0_MISO, LSM9DS0_MOSI, LSM9DS0_XM_CS, LSM9DS0_GYRO_CS, 1000);
-
+//------------------------------------------------------------------------------------------------------------
 
 /**************************************************************************/
-/*
+/* Initialization Function for the IMU
     Displays some basic information on this sensor from the unified
     sensor API sensor_t type (see Adafruit_Sensor for more information)
 */
@@ -152,7 +185,7 @@ void displaySensorDetails(void)
 
 /**************************************************************************/
 /*
-    Configures the gain and integration time for the TSL2561
+    Configures the gain and integration time for the TSL2561 on the IMU
 */
 /**************************************************************************/
 void configureSensor(void)
@@ -247,7 +280,7 @@ void setup(void)
     increasing PARAM_PS_ADC_GAIN will increase the LED on time and ADC window you will see increase in brightness
     of visible LED's, ADC output, & noise datasheet warns not to go beyond 4 because chip or LEDs may be damaged
     
-    Nicole's Description: Increases the irLED pulse width and ADC integration time by a factor of
+    Increases the irLED pulse width and ADC integration time by a factor of
     (2 ^ PS_ADC_GAIN) for all PS Measurements. The irLEDs are configured for 359 mA, so don't enter value above 5
     0x00: ADC Clock is divided by 1
     */
@@ -276,6 +309,7 @@ void setup(void)
 /**************************************************************************/
 void loop(void) 
 {
+  // Runs code for the Blink Sensor ----------------------------------------
   int i=0;
   IR1 = 0;
 
@@ -293,15 +327,17 @@ void loop(void)
   //Printing the raw LED values
   //For the python script, I'm sending the raw values separated by tabs.
 
-
+  // Blink Sensor Data Collection Completed ------------------------------
   
+  
+  // Runs code for IMU Sensor---------------------------------------------
   
   /* Get a new sensor event */ 
   sensors_event_t accel, mag, gyro, temp;
 
   lsm.getEvent(&accel, &mag, &gyro, &temp); 
-//  unsigned long startTime = micros();
-  // print out accelleration data
+
+  // print out accelleration data and the Blink Sensor Data
   Serial.print(IR1);Serial.print("\t");
   Serial.print((float)accel.acceleration.x,4); Serial.print("\t");
   Serial.print((float)accel.acceleration.y,4); Serial.print("\t");

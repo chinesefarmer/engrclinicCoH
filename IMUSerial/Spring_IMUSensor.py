@@ -1,3 +1,27 @@
+################################################################################
+# This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
+# from Harvey Mudd College
+# This file provides a class and member functions that can receive the serial 
+# communication from the teensy 3.1 that contains all the IMU and blink sensor 
+# collected. It can process the IMU data collected through filtering, calculate 
+# the roll, pitch and yaw angles of rotation (RPY) from the collected IMU data calculating
+# sample distribution of each of the angles (the number of samples that correspond
+# to each RPY angle), and will calculate the percentage of time the user has been
+# focusing on the target operating point.
+# 
+# As of hardware, the sensor package is required to run the program properly. 
+# specifically, the arduino teensy 3.1 needs to be connected to one of the COM ports
+# on the computer.
+
+# Additional arduino, python libraries also need to be installed. 
+# Please see the installation section in the appendix of the final report for details.
+# Code was last changed at:
+# May 6, 2015, Claremont, California 
+################################################################################
+
+# The data saved is only the unfiltered RPY and IMU and blink sensing data received
+# by the teensy
+
 import csv
 from serial import *
 from math import *
@@ -64,27 +88,29 @@ class IMUSensor:
         self.timeAtPitch = np.zeros(360)
         self.timeAtYaw = np.zeros(360)
 
-        #For Testing
-        self.smoothYawAll = []
-
+        # The name of the file that will have all the sensor data saved to it
         self.filenameIMU = ''
 # -------------------------------------------------------------------------------
 # Member functions ------------------------------------------------------------
+    
+    # Description: Writes the comma-delimited csv file that saves all of the IMU data
     def csv_writer(self, data,nameOfFile):
         with open(nameOfFile, 'a') as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             writer.writerow(data)
 
-    # Will return 0 if the function fails to receive readable data from serial and
+    # Description: This function will read the serial port communication data written by
+    # the teensy 3.1 and will receive both IMU data and the Blink sensor data.
+    # Note: Will return 0 if the function fails to receive readable data from serial and
     # will return 1 if the function succeeds
     def receiveSerial(self,usb):
 
         serialData = []
         #It also works if you just read the line instead of using a legit buffer
         buffer = usb.readline()
-        #buffer = buffer + usb.read(usb.inWaiting())
-        #raw_input("Press enter to continue...")
-            
+        
+        # Conditions the serial comm data so that it is readable by Python and cause the 
+        # program to skip corrupted incoming serial data from processing
         if '\n' in buffer:
             lines = buffer.split('\n')
             last_received_full = lines[-2]
@@ -128,7 +154,11 @@ class IMUSensor:
                     return [0, serialData]
         return [0, serialData]
 
-
+    # Description: Calculates the roll, pitch and yaw angles of rotation and saves the data to 
+    # file. Will initiate a calibration sequence during the first self.calibrationNo number of
+    # times that this function has been called. This will produce a constant that attempts to
+    # minimize the drift caused by gyroscope noise that is integrated to get the yaw angle of
+    # rotation
     def calcRPYData(self,serialData):
         [IR1,AcclX,AcclY,AcclZ,MagX,MagY,MagZ,GyroX,GyroY,GyroZ] = serialData
         #Initialize variables for requried roll, pitch, yaw calculations
@@ -136,11 +166,13 @@ class IMUSensor:
         # 0 means that the calibration sequence has not been completed
         # 1 means that the calibration sequence has been completed
         ready = 0
+
+        # Initializes the roll and pitch
         roll = 0
         pitch = 0
 
-        timeStamp = datetime.now().time()
         #Time elapsed from start
+        timeStamp = datetime.now().time()
         currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
         # Calibration Sequence: Accounts for drift of gyro data
         # During calibration, the IMU must be placed on a stationary
@@ -163,8 +195,9 @@ class IMUSensor:
         else:
 
             ready = 1
-            timeStamp = datetime.now().time()
+            
             #Time elapsed from start
+            timeStamp = datetime.now().time()
             currTime = ((timeStamp.hour*60 + timeStamp.minute + (timeStamp.second + 0.000001*timeStamp.microsecond)/60))*60 - self.startTime
 
 
@@ -204,13 +237,15 @@ class IMUSensor:
             prevP = self.nextP
             prevY = self.nextY
 
+            # Minimizes the error of roll and pitch by checking the calculated valley
+            # with the gyroscope.
             self.nextR = (prevR + roll*gX) / (1 + gX)
             self.nextP = (prevP + pitch * gZ) / (1 + gZ)
 
             roll = self.nextR*180/pi
             pitch = -1*self.nextP*180/pi
 
-            # Makes Roll, Pitch, and Yaw range betweem -180 to 180 degrees
+            # Makes Roll and Pitch range betweem -180 to 180 degrees
             if(roll>180):
                 roll = roll - 360
             elif(roll<-180):
@@ -221,7 +256,7 @@ class IMUSensor:
             elif(pitch<-180):
                 pitch = pitch + 360
 
-
+            # Calculates the yaw from the y-axis gyroscope
             self.nextY = self.calcGyroYaw(prevY,currTime,gY)
         
         #Saves the IMU data to a csv file
@@ -229,11 +264,16 @@ class IMUSensor:
         self.csv_writer(data,self.filenameIMU)
         return [roll, pitch, self.nextY ,currTime, ready]
 
-
+    # Description: Calculates the yaw from the y-axis gyroscope and weights the value
+    # to remove the accumulated error from the gyroscope noise. The weight also will 
+    # cause the sensor to refocus the 0 value to be wherever the sensor has been facing
+    # for a long period of time. Refocus happens when a certain orientaion corresponding
+    # to a non-zero yaw value is focused on for too long and the yaw is decreased to zero.
     def calcGyroYaw(self,previousY, currTime, gyroY):
+        # The yaw calculation
         yawAngle = ((gyroY*(currTime-self.previousTime)+previousY)*self.gyroReFocus)
 
-        # CHECK THIS LATER
+        # Makes yaw range betweem -180 to 180 degrees
         if(yawAngle > 180):
             yawAngle = 180
         elif(yawAngle <-180):
@@ -241,70 +281,80 @@ class IMUSensor:
         return yawAngle
 
 
-
+    # Description: Processes the IMU data by filtering it, finding the time distribution of
+    # each of the angles, and then calculating the percentage that the user is focusing on
+    # the target operating field.
     def processIMUData(self,IMUData):
         
         [roll, pitch, yaw, currTime, ready] = IMUData
+
+        # Filters the roll, pitch, and yaw
         smoothRoll = self.rtSmoothFilter(self.previousR, roll, self.avgWeightingRoll);
         smoothPitch = self.rtSmoothFilter(self.previousP, pitch, self.avgWeightingPitch);
         smoothYaw = self.rtSmoothFilter(self.previousY,yaw,self.avgWeightingYaw)
 
+        # Calculates the time that the IMU is oriented at each of the angles in
+        #  roll, pitch, and yaw
         self.timeAtAngle(smoothRoll,smoothPitch,smoothYaw)
 
-
-        # The integer values denote which RPY data is being passed
+        # Calculates the percentage focus
+        # The integer values 0, 1, and 2 denote which RPY data is being passed
+        # roll = 0
+        # pitch = 1
+        # yaw = 2
         [rollMax ,rollFocus] = self.percentFocus(self.timeAtRoll,0)
-        # Because it is pitch, the percent focus algorithm bounds the information
-        # to angles that correspond to looking downwards towards the operating table
         [pitchMax ,pitchFocus] = self.percentFocus(self.timeAtPitch,1)
         [yawMax ,yawFocus] = self.percentFocus(self.timeAtYaw,2)
 
+        # Saves previous values
         self.previousR = smoothRoll
         self.previousP = smoothPitch
         previousY = smoothYaw
         self.previousTime = currTime
 
-        # For Testing
-        # self.smoothYawAll.append(yaw)
-
         return [smoothRoll,smoothPitch,smoothYaw, self.timeAtRoll,self.timeAtPitch,self.timeAtYaw, rollMax ,rollFocus, pitchMax ,pitchFocus, yawMax ,yawFocus]
 
-
-    # Real Time Exponential Moving Average Filter
+    # Description: Applies a real time exponential moving average filter
     def rtSmoothFilter(self,prevRPY,rpyData, avgWeighting):
         smoothedData = rpyData*avgWeighting + (1-avgWeighting)*prevRPY
         return smoothedData
 
-
+    # Description: Updates an array with 360 elements where each index corresponds
+    # to an angle and the value at the index corresponds to the number of samples
+    # that has occured at that angle
     def timeAtAngle(self,roll,pitch,yaw):
-        # Assumption: All timesteps are close to the average time step
         
         # Corrects for the fact that RPY range is between 180 and -180
+        # Note: There may be some off by one errors that appear very rarely
         roll += 180
         pitch += 180
         yaw += 179
 
+        # Increments the array at the correct index(or angle)
         self.timeAtRoll[int(roll)] += 1
         self.timeAtPitch[int(pitch)] += 1
         self.timeAtYaw[int(yaw)] += 1
 
-
-    # Calculates the approximate orientation that the head needs to be oriented in order to be facing the
-    # operating field and calculates the percentage of time the head is facing that way (for the pitch orientation)
-    # Assumption: The head needs to be facing downwards to see the operating table
-    # Warning: This is a highly rudimentary algorithm.
-    # the operating table
+    # Description: 
+    # Calculates the approximate orientation that the head needs to be oriented in 
+    # order to be facing the operating field and calculates the percentage of time 
+    # the head is facing that way (for the pitch orientation)
+    # The percentage focus is calculated out of the total time and is not windowed.
+    # For future additions, a similar function as this that incorporates windowing
+    # may be useful
 
     # Finds operating angle by finding  the angle that takes the max time
-    # The roll reading will most likely be impractical in the operating room
+    # The roll reading will does not calculate if the user is focusing on the operating field
+    # but the angle at which the head tilted for the longest time and what percentage of the
+    # total time the head has been tilted there + or - a range.
     def percentFocus(self,angles,RPYtype):
-        # angles, angleDist, totalTime
 
         # acceptableRange is the range about a central angle that is allowed to count as
         # still facing the operating table
-        # 5 is a dummy value that is overwritten
+        # 5 is a dummy value that will be overwritten
         acceptableRange = 5
 
+        # Sets the acceptable range
         # Roll
         if(RPYtype == 0):
             acceptableRange = self.ACCEPTABLE_ROLL_RANGE
@@ -316,15 +366,17 @@ class IMUSensor:
             acceptableRange = self.ACCEPTABLE_YAW_RANGE
 
         timeTarget = 0
-        # Check if this is right
         totSamples = self.trialNum - self.calibrationNo
 
+        # Calculates the angle that currently has experienced the most samples
         operateAngle = np.argmax(angles)
         timeTarget = 0              # Time facing the target operating field
         for i in range(2*acceptableRange):
             iterAngle = operateAngle + i - acceptableRange
 
-            # Need to rewrite so that it wraps around -------------------------XXXXXXXXXXXXXXX
+            # Need to rewrite so that it wraps around
+            # Currently if it is out of range, the samples at the angles are 
+            # not counted
             if(iterAngle < 0 or iterAngle > 360):
                 continue
             else:
@@ -333,7 +385,8 @@ class IMUSensor:
         return [operateAngle, timeTarget/(self.trialNum-self.calibrationNo)]
 
 
-
+    # Description: A Debugging function that allows the programmer to view
+    # basic plots to help assess if the function is working correctly
     def plotter(self):
         pl.figure(1)
         pl.subplot(411)
@@ -342,6 +395,4 @@ class IMUSensor:
         pl.plot(self.timeAtPitch)
         pl.subplot(413)
         pl.plot(self.timeAtYaw)
-        # pl.subplot(414)
-        # pl.plot(self.smoothYawAll[0:])
         pl.show()

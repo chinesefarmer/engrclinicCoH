@@ -189,10 +189,6 @@ class GraphPanel3x(wx.Panel):
 		self.ymin_control = BoundControlBox(self, -1, "Y min", 0, True)
 		self.ymax_control = BoundControlBox(self, -1, "Y max", 100, True)
 
-		#self.pause_button = wx.Button(self, -1, "Pause")
-		#self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
-		#self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
-
 		self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 		#self.hbox1.Add(self.pause_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
 
