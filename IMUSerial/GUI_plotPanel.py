@@ -1,30 +1,35 @@
+#!/usr/bin/env python27
+################################################################################
+# This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
+# from Harvey Mudd College
+# It is used to create a GUI for displaying blinks with an IR blink sensor,
+# displaying percentage focus in real time and streaming and recording data
+# GUI_main.py requires GUI_colorBar.py and GUI_plotPanel.py to plot properly.
+# It also requires the Spring_Blinksensor.py and Spring_IMUSensor.py, as well. 
+# 
+# As of hardware, the sensor package is required to run the program properly. 
+# specifically, the arduino teensy 3.1 needs to be connected to one of the COM ports
+# on the computer. The streaming camera logitech C615 needs to be connected for 
+# camera streaming to work. 
+# Additional arduino, python libraries also need to be installed. 
+# Please see the installation section in the appendix of the final report for details.
+# Code was last changed at:
+# May 6, 2015, Claremont, California 
+################################################################################
+
 import cmd
 import subprocess
 import shlex
 import time
 import wx
-# The recommended way to use wx with mpl is with the WXAgg
-# backend. 
-#
-# inherited from nicole's code
 import datetime
 import matplotlib
-#matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import \
 	FigureCanvasWxAgg as FigCanvas, \
 	NavigationToolbar2WxAgg as NavigationToolbar
 import matplotlib as mpl
-#import numpy as np
-#import pylab as pl
 import matplotlib.pyplot as plt
-#Test data comes from here
-#from FallSiteVisit_GUI import SerialData as IRserialData
-#from outputnumbers import SerialData as genIRserialData
-
-# from main_sensors
-#import Spring_BlinkSensor as bs
-#import Spring_IMUSensor as imu
 from serial import *
 import csv
 from math import *
@@ -32,8 +37,6 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 import time as tm
-
-#from datetime import *
 from outputnumbers import SerialData
 
 
@@ -176,9 +179,9 @@ class GraphPanel3x(wx.Panel):
 		self.sensorVal3 = [self.data[self.sensorIndex3]]
 		self.xmin = 0
 		self.xmax = 50
-		self.ymax = 200
-		self.ymin = -200
-		#print "sensorValues", self.sensorVal1, self.sensorVal2, self.sensorVal3
+		self.ymax = 100
+		self.ymin = -100
+
 		self.title = title
 		self.xAxisLabel = xAxisLabel
 		self.yAxisLabel = yAxisLabel
@@ -192,9 +195,6 @@ class GraphPanel3x(wx.Panel):
 		self.create_main_panel()
 		
 		self.redraw_timer = timerSource
-		#self.redraw_timer = wx.Timer(self)
-		#self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-		#self.redraw_timer.Start(1) #refresh rate in ms
 
 	def create_main_panel(self):
 		self.panel = wx.Panel(self)
@@ -207,10 +207,6 @@ class GraphPanel3x(wx.Panel):
 		#comment this out
 		self.ymin_control = BoundControlBox(self, -1, "Y min", 0, True)
 		self.ymax_control = BoundControlBox(self, -1, "Y max", 100, True)
-
-		#self.pause_button = wx.Button(self, -1, "Pause")
-		#self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
-		#self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
 		self.hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 		#self.hbox1.Add(self.pause_button, border=5, flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
@@ -469,6 +465,10 @@ class GraphPanel(wx.Panel):
 		# when xmin is on auto, it "follows" xmax to produce a 
 		# sliding window effect. therefore, xmin is assigned after
 		# xmax.
+
+		ymax = max(self.sensorVal) + 10
+		ymin = -5
+
 		#
 		if self.xmax_control.is_auto():
 			xmax = len(self.sensorVal) if len(self.sensorVal) > 50 else 50
