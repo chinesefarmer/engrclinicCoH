@@ -64,6 +64,8 @@ class IMUSensor:
         self.timeAtPitch = np.zeros(360)
         self.timeAtYaw = np.zeros(360)
 
+        # Sets the Window of the time distribution
+
         #For Testing
         self.smoothYawAll = []
 
@@ -255,6 +257,8 @@ class IMUSensor:
 
 
         # The integer values denote which RPY data is being passed
+        # The first variable  is the angle and the other variable is the percentage 
+        # focusing
         [rollMax ,rollFocus] = self.percentFocus(self.timeAtRoll,0)
         # Because it is pitch, the percent focus algorithm bounds the information
         # to angles that correspond to looking downwards towards the operating table

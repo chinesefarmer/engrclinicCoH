@@ -22,7 +22,7 @@ if __name__=='__main__':
     #Reads the data to process for the blink sensor
     filenameBlink = (filename[:-4] + 'Blink.csv' )
 
-    usb = Serial('COM4', 57600)
+    usb = Serial('COM5', 57600)
     blinkSensor = bs.BlinkSensor()
     blinkSensor.CheckKeyPress = True
     blinkSensor.filename = filenameBlink
