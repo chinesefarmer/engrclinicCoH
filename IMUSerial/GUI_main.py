@@ -244,8 +244,8 @@ class MainFrame(wx.Frame):
         ######################
         # Draw the widgets (Sizer, button)   
         #Control panel    
-        sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
-        sizerV.AddSpacer(5,5)
+        # sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
+        # sizerV.AddSpacer(5,5)
 
         self.Panel3 = CameraPanel(self)
         sizerV.AddSpacer(5,5)
@@ -327,8 +327,6 @@ class MainFrame(wx.Frame):
     def on_redraw_timer(self, event = None):
         if not self.paused:
             try:
-                # comment out for therading    
-                # self.data = self.s.next()
                 if(self.data[0] != 1):
                     self.gotData = False
                     
@@ -338,10 +336,7 @@ class MainFrame(wx.Frame):
                     showColor = self.cb_color.IsChecked()
                     if (showColor):
                         self.displayPanel2.data = self.data
-                        #self.displayPanel3.data = self.data
-                        #print "got data to main frame"
                         self.displayPanel2.refresh()
-                        #self.displayPanel3.refresh()
                         pass
                     else: 
                         self.displayPanelBlink.data=self.data
@@ -380,17 +375,17 @@ class MainFrame(wx.Frame):
         self.Fit()
         pass
 
-    def stopAll(self, event = None):
-        """stop or start all plots"""
-        self.paused = not self.paused
+    # def stopAll(self, event = None):
+    #     """stop or start all plots"""
+    #     self.paused = not self.paused
 
-        label = "Resume Plotting" if (self.paused) else "Pause Plotting"
-        self.StopBtn.SetLabel(label)
+    #     label = "Resume Plotting" if (self.paused) else "Pause Plotting"
+    #     self.StopBtn.SetLabel(label)
 
-        self.displayPanel1.paused = not self.displayPanel1.paused
-        self.displayPanelBlink.paused = not self.displayPanelBlink.paused
-        self.displayPanel2.paused = not self.displayPanel2.paused
-        pass
+    #     self.displayPanel1.paused = not self.displayPanel1.paused
+    #     self.displayPanelBlink.paused = not self.displayPanelBlink.paused
+    #     self.displayPanel2.paused = not self.displayPanel2.paused
+    #     pass
         
     def OnStart(self, event = None):
         if not self.worker:
