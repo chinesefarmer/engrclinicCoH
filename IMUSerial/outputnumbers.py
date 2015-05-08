@@ -1,4 +1,22 @@
 #!/usr/bin/env python27
+################################################################################
+# This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
+# from Harvey Mudd College
+# It is used to create a GUI for displaying blinks with an IR blink sensor,
+# displaying percentage focus in real time and streaming and recording data
+# GUI_main.py requires GUI_colorBar.py and GUI_plotPanel.py to plot properly.
+# It also requires the Spring_Blinksensor.py and Spring_IMUSensor.py, as well. 
+# 
+# As of hardware, the sensor package is required to run the program properly. 
+# specifically, the arduino teensy 3.1 needs to be connected to one of the COM ports
+# on the computer. The streaming camera logitech C615 needs to be connected for 
+# camera streaming to work. 
+# Additional arduino, python libraries also need to be installed. 
+# Please see the installation section in the appendix of the final report for details.
+# Code was last changed at:
+# May 6, 2015, Claremont, California 
+################################################################################
+
 import random
 import time
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python27
 ################################################################################
 # This piece of code is developed by the 2014-2015 City of Hope-Tracking team 
 # from Harvey Mudd College
@@ -136,12 +137,13 @@ class sensorData(object):
         for port in ports_avaiable:
             if port[1].startswith("Teensy"):
                 teensy_port = port
+
         if teensy_port:
             print "teensy ports:", teensy_port
             self.usb = Serial(teensy_port[0], 57600)
         else:
             print "Please check if sensor is plugged in correctly"
-            self.usb = Serial('COM4', 57600)
+            self.usb = Serial('COM4', 57600) # The default COM port 4 is on the right
         self.blinkSensor = bs.BlinkSensor()
         self.blinkSensor.CheckKeyPress = False
         self.blinkSensor.filename = filenameBlink
