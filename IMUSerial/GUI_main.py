@@ -69,7 +69,7 @@ class ResultEvent(wx.PyEvent):
         self.SetEventType(EVT_RESULT_ID)
         self.data = data
 
-# Thread class that executes processing
+# Thread class that executes processing of the sensor values
 class WorkerThread(Thread):
     """Worker Thread Class."""
     def __init__(self, notify_window, passedData):
@@ -86,10 +86,7 @@ class WorkerThread(Thread):
 
     def run(self):
         """Run Worker Thread."""
-        # This is the code executing in the new thread. Simulation of
-        # a long process (well, 10s here) as a simple loop - you will
-        # need to structure your processing so that you periodically
-        # peek at the abort variable
+        # This is the code executing in the new thread.
         while not self._want_abort:
             try:  
                 self.data = self.s.next()
@@ -113,9 +110,8 @@ class WorkerThread(Thread):
     def abort(self):
         """abort worker thread."""
         print "aborting..."
-        # Method for use by main thread to signal an abort
+        # Starting thread abort signal that will be used in run
         self._want_abort = True
-        #raise Exception('abort')
 
 ################################################################################
 #initialize sensor reading and processing functions
@@ -125,13 +121,12 @@ class sensorData(object):
         print "initializing sensor data.........."
         dt = datetime.datetime.now()
         date = dt.strftime("%m%d%y_%H%M%p_")
-        filenameIMU = date + 'imu.csv'
 
-        #Reads the data to process for the blink sensor
+        #The file name tha the imu and the blink sensor will write the data to.
+        filenameIMU = date + 'imu.csv'
         filenameBlink = date + 'blink.csv'
 
-        #initialize teensy port...
-        
+        #initialize teensy ports... If has problems, please see report or README
         ports_avaiable = list(list_ports.comports())
         teensy_port = tuple()
         for port in ports_avaiable:
@@ -153,7 +148,6 @@ class sensorData(object):
         
         self.imuSensor.csv_writer(["AcclX","AcclY","AcclZ","MagX","MagY","MagZ","GyroX","GyroY","GyroZ", "Roll", "Pitch", "Yaw", "Time Elapsed(s)"],filenameIMU)
         
-
         # Settable values for blinkSensor 
         # How often to calculate the number of blinks, in minutes
         self.blinkSensor.tWindow = 1.0/3
@@ -238,8 +232,8 @@ class MainFrame(wx.Frame):
         sizerV = wx.StaticBoxSizer(box, wx.VERTICAL)
 
         #init GUI
-        self.StopBtn = wx.Button(self, label="Stop Plotting")
-        self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
+        #self.StopBtn = wx.Button(self, label="Stop Plotting")
+        #self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
 
         #this runs the threading for updating the sensor data
         sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
@@ -247,29 +241,45 @@ class MainFrame(wx.Frame):
         sizerV.Add(self.startSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         sizerV.AddSpacer(5,5)
 
-        # Draw the things        
+        ######################
+        # Draw the widgets (Sizer, button)   
+        #Control panel    
         sizerV.Add(self.StopBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
         sizerV.AddSpacer(5,5)
 
-        #add widgets        
         self.Panel3 = CameraPanel(self)
         sizerV.AddSpacer(5,5)
         sizerV.Add(self.Panel3, 0, wx.EXPAND)
 
-        #init those sensor plots
         self.cb_color = wx.CheckBox(self, -1, "Show Color Grid",style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_color, self.cb_color)
         self.cb_color.SetValue(True)
         sizerV.Add(self.cb_color, 0, wx.EXPAND)
 
+        sizerH.Add(sizerV, 0, wx.RIGHT, 0)
+        self.SetSizerAndFit(sizerH)
+        filemenu= wx.Menu()
+
+        item = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
+        self.Bind(wx.EVT_MENU, self.onQuit, item)
+
+        # Creating the menubar.
+        menuBar = wx.MenuBar()
+        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+
+        ##########################
+        #Display Panel
         self.sizerDisplayH1 = wx.BoxSizer(wx.HORIZONTAL)
         self.sizerDisplayV2 = wx.BoxSizer(wx.VERTICAL)
 
+        # Full display panel
         self.displayPanelBlink = GraphPanel(self, source=self.data, index = self.blinkIndex, timerSource = self.redraw_timer, title = "Blink Sensor data vs Time", xAxisLabel = "Time (s)", yAxisLabel ="Blink")
         self.sizerDisplayH1.Add(self.displayPanelBlink, 1, wx.EXPAND|wx.ALL)
-
         self.displayPanel1 = GraphPanel3x(self, source=self.data, index = [self.smoothRindex, self.smoothPindex, self.smoothYindex], timerSource = self.redraw_timer, title = "RPY data vs Time", xAxisLabel = "Time (s)", yAxisLabel = "Smooth RPY")
         self.sizerDisplayH1.Add(self.displayPanel1, 1, wx.EXPAND|wx.ALL)
+        
+        # Simple display panel
         self.displayPanel2 = ColorPanel(self, source=self.data, focusIndex = self.pitchFocusIndex,percentIndex =self.combpitchYawIndex , timerSource = self.redraw_timer, title = "Focus on the Operating Field", xAxisLabel = "Percent Focus", yAxisLabel = "")
         self.sizerDisplayV2.Add(self.displayPanel2, 1, wx.EXPAND|wx.ALL)
 
@@ -279,21 +289,6 @@ class MainFrame(wx.Frame):
         self.displayPanel1.Hide()
         self.sizerDisplayH1.Hide(self)
         self.sizerDisplayH1.Layout()
-
-        sizerH.Add(sizerV, 0, wx.RIGHT, 0)
-        self.SetSizerAndFit(sizerH)
-        filemenu= wx.Menu()
-
-        # wx.ID_ABOUT and wx.ID_EXIT are standard IDs provided by wxWidgets.
-        filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
-        filemenu.AppendSeparator()
-        item = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
-        self.Bind(wx.EVT_MENU, self.onQuit, item)
-
-        # Creating the menubar.
-        menuBar = wx.MenuBar()
-        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
-        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         self.Fit()
         self.Show(True)
@@ -405,7 +400,7 @@ class MainFrame(wx.Frame):
             self.pauseSensorBtn.Enable(True)
 
     def OnStop(self, event = None):
-        #print "trying to pause it?", self.worker
+
         if self.worker:
             self.worker.abort()
             self.worker = None
@@ -416,9 +411,7 @@ class MainFrame(wx.Frame):
         if event.data == None:
             self.data = [0,0,0,0,0,0,0,0]
         else:
-            #print "gotData", event.data[0:3]
             self.data = deepcopy(event.data)
-            #self.on_redraw_timer()
 
     def onQuit(self, event=None):
         """Exit"""
@@ -547,10 +540,7 @@ class BoundControlBox(wx.Panel):
 def runCamera(name, saving=False):
     stream = 'vlc.exe -I rc dshow:// :dshow-vdev="Logitech HD Webcam C615" :dshow-caching=200 :dshow-size=1280x720 :dshow-aspect-ratio=16\:9 :dshow-fps=20'
 
-    save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'#name + '.mp4}\'}\"' #
-
-    #save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=30,size=1280x720}:std{access=file,mux=mp4,dst=C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
-
+    save=' --sout=\"#duplicate{dst=display,dst=\'transcode{vcodec=h264,vb=1260,fps=20,size=1280x720}:std{access=file,mux=mp4,dst=' + 'C:\\\Users\\\ClinicCoH\\\Desktop\\\TestLog_mp4.mp4}\'}\"'
     if saving:
      save = save
     else:
