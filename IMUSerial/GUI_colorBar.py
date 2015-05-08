@@ -3,28 +3,14 @@ import subprocess
 import shlex
 import time
 import wx
-# The recommended way to use wx with mpl is with the WXAgg
-# backend. 
-#
-# inherited from nicole's code
 import datetime
 import matplotlib
-#matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
     NavigationToolbar2WxAgg as NavigationToolbar
 import matplotlib as mpl
-#import numpy as np
-#import pylab as pl
 import matplotlib.pyplot as plt
-#Test data comes from here
-#from FallSiteVisit_GUI import SerialData as IRserialData
-#from outputnumbers import SerialData as genIRserialData
-
-# from main_sensors
-#import Spring_BlinkSensor as bs
-#import Spring_IMUSensor as imu
 from serial import *
 import csv
 from math import *
@@ -32,8 +18,6 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 import time as tm
-
-#from datetime import *
 from outputnumbers import SerialData
 from copy import deepcopy
 

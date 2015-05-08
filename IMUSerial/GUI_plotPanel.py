@@ -3,28 +3,14 @@ import subprocess
 import shlex
 import time
 import wx
-# The recommended way to use wx with mpl is with the WXAgg
-# backend. 
-#
-# inherited from nicole's code
 import datetime
 import matplotlib
-#matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import \
 	FigureCanvasWxAgg as FigCanvas, \
 	NavigationToolbar2WxAgg as NavigationToolbar
 import matplotlib as mpl
-#import numpy as np
-#import pylab as pl
 import matplotlib.pyplot as plt
-#Test data comes from here
-#from FallSiteVisit_GUI import SerialData as IRserialData
-#from outputnumbers import SerialData as genIRserialData
-
-# from main_sensors
-#import Spring_BlinkSensor as bs
-#import Spring_IMUSensor as imu
 from serial import *
 import csv
 from math import *
@@ -32,8 +18,6 @@ import msvcrt as m
 import numpy as np
 import pylab as pl
 import time as tm
-
-#from datetime import *
 from outputnumbers import SerialData
 
 
@@ -178,7 +162,7 @@ class GraphPanel3x(wx.Panel):
 		self.xmax = 50
 		self.ymax = 100
 		self.ymin = -100
-		#print "sensorValues", self.sensorVal1, self.sensorVal2, self.sensorVal3
+
 		self.title = title
 		self.xAxisLabel = xAxisLabel
 		self.yAxisLabel = yAxisLabel
@@ -192,9 +176,6 @@ class GraphPanel3x(wx.Panel):
 		self.create_main_panel()
 		
 		self.redraw_timer = timerSource
-		#self.redraw_timer = wx.Timer(self)
-		#self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-		#self.redraw_timer.Start(1) #refresh rate in ms
 
 	def create_main_panel(self):
 		self.panel = wx.Panel(self)

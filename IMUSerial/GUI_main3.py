@@ -1,12 +1,10 @@
+
 import cmd
 import subprocess
 import shlex
 import time
 import wx
 # The recommended way to use wx with mpl is with the WXAgg
-# backend. 
-#
-# inherited from nicole's code
 import datetime
 import matplotlib
 from matplotlib.figure import Figure
@@ -243,8 +241,8 @@ class MainFrame(wx.Frame):
         
 
         #init GUI
-        self.StopBtn = wx.Button(self, label="Stop Plotting")
-        self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
+        #self.StopBtn = wx.Button(self, label="Stop Plotting")
+        #self.StopBtn.Bind(wx.EVT_BUTTON, self.stopAll )
 
         #this runs the threading for updating the sensor data
         sizerV.Add(self.pauseSensorBtn, 0, wx.ALIGN_CENTER|wx.ALL, 5)
