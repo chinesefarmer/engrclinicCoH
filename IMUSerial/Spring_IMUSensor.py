@@ -4,11 +4,7 @@ from math import *
 import msvcrt as m
 import numpy as np
 import pylab as pl
-import time as tm
-
-#import datetime
-#import time
-
+import time as tm 
 from datetime import *
 
 #----------Global Variables for the IMU--------------------------------
@@ -30,8 +26,10 @@ class IMUSensor:
         # Number of iterations during calibration step
         self.calibrationNo = 100
 
+        # The weighting factor that prevents the error from the yaw angle
+        # calculation from accumulating
         self.gyroReFocus = .9995
-# ------------------------------------------------------------------------------
+        # -----------------------------------------------------------------------
         # Parameters required for operation (Non-Customizable)------------------- 
 
         # Required for some functions
@@ -56,6 +54,8 @@ class IMUSensor:
         self.previousR = 0;
         self.previousP = 0;
         self.previousY = 0;
+
+        # Time of the previous sample
         self.previousTime = 0;
 
         # Makes an array of 360 zeroes which will be populated by the number of samples
@@ -232,8 +232,6 @@ class IMUSensor:
 
     def calcGyroYaw(self,previousY, currTime, gyroY):
         yawAngle = ((gyroY*(currTime-self.previousTime)+previousY)*self.gyroReFocus)
-
-        # yawAngle = (((gyroY+self.gyroDriftY)*(currTime-self.previousTime)+previousY)*.998)
 
         # CHECK THIS LATER
         if(yawAngle > 180):
